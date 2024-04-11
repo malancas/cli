@@ -17,6 +17,10 @@ const (
 	maxLimitForFetch = 100
 )
 
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type apiClient interface {
 	RESTWithNext(hostname, method, p string, body io.Reader, data interface{}) (string, error)
 }
