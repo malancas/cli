@@ -17,10 +17,6 @@ const (
 	maxLimitForFetch = 100
 )
 
-type httpClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 type apiClient interface {
 	RESTWithNext(hostname, method, p string, body io.Reader, data interface{}) (string, error)
 }
@@ -34,6 +30,10 @@ type LiveClient struct {
 	api    apiClient
 	host   string
 	logger *ioconfig.Handler
+}
+
+func HTTPClientWithCustomTransport(transport http.RoundTripper) *http.Client {
+	return &http.Client{Transport: transport}
 }
 
 func NewLiveClient(hc *http.Client, l *ioconfig.Handler) *LiveClient {
