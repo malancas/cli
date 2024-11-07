@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
-<<<<<<< HEAD
-=======
 	"github.com/cli/cli/v2/internal/ghinstance"
->>>>>>> trunk
 	"github.com/cli/cli/v2/internal/text"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/api"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/artifact"
