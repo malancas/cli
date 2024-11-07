@@ -110,7 +110,7 @@ func TestRunDelete(t *testing.T) {
 					httpmock.REST("DELETE", fmt.Sprintf("repos/OWNER/REPO/actions/runs/%d", shared.SuccessfulRun.ID)),
 					httpmock.StatusStringResponse(204, ""))
 			},
-			wantOut: "✓ Request to delete workflow submitted.\n",
+			wantOut: "✓ Request to delete workflow run submitted.\n",
 		},
 		{
 			name: "not found",
@@ -153,7 +153,7 @@ func TestRunDelete(t *testing.T) {
 					httpmock.REST("DELETE", fmt.Sprintf("repos/OWNER/REPO/actions/runs/%d", shared.SuccessfulRun.ID)),
 					httpmock.StatusStringResponse(204, ""))
 			},
-			wantOut: "✓ Request to delete workflow submitted.\n",
+			wantOut: "✓ Request to delete workflow run submitted.\n",
 		},
 	}
 

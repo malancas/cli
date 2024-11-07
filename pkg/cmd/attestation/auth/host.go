@@ -3,14 +3,13 @@ package auth
 import (
 	"errors"
 
-	"github.com/cli/go-gh/v2/pkg/auth"
+	ghauth "github.com/cli/go-gh/v2/pkg/auth"
 )
 
-var ErrUnsupportedHost = errors.New("The GH_HOST environment variable is set to a custom GitHub host. gh attestation does not currently support custom GitHub Enterprise hosts")
+var ErrUnsupportedHost = errors.New("An unsupported host was detected. Note that gh attestation does not currently support GHES")
 
-func IsHostSupported() error {
-	host, _ := auth.DefaultHost()
-	if host != "github.com" {
+func IsHostSupported(host string) error {
+	if ghauth.IsEnterprise(host) {
 		return ErrUnsupportedHost
 	}
 	return nil

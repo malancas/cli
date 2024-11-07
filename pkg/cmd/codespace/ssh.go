@@ -20,7 +20,6 @@ import (
 	"github.com/cli/cli/v2/internal/codespaces/api"
 	"github.com/cli/cli/v2/internal/codespaces/portforwarder"
 	"github.com/cli/cli/v2/internal/codespaces/rpc"
-	"github.com/cli/cli/v2/internal/config"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/cli/cli/v2/pkg/ssh"
 	"github.com/cli/safeexec"
@@ -60,7 +59,7 @@ func newSSHCmd(app *App) *cobra.Command {
 			The %[1]sssh%[1]s command will automatically create a public/private ssh key pair in the
 			%[1]s~/.ssh%[1]s directory if you do not have an existing valid key pair. When selecting the
 			key pair to use, the preferred order is:
-			  
+
 			1. Key specified by %[1]s-i%[1]s in %[1]s<ssh-flags>%[1]s
 			2. Automatic key, if it already exists
 			3. First valid key pair in ssh config (according to %[1]sssh -G%[1]s)
@@ -336,10 +335,20 @@ func selectSSHKeys(
 				return nil, false, errors.New("missing value to -i argument")
 			}
 
+			privateKeyPath := args[i+1]
+
+			// The --config setup will set the automatic key with -i, but it might not actually be created, so we need to ensure that here
+			if automaticPrivateKeyPath, _ := automaticPrivateKeyPath(sshContext); automaticPrivateKeyPath == privateKeyPath {
+				_, err := generateAutomaticSSHKeys(sshContext)
+				if err != nil {
+					return nil, false, fmt.Errorf("generating automatic keypair: %w", err)
+				}
+			}
+
 			// User manually specified an identity file so just trust it is correct
 			return &ssh.KeyPair{
-				PrivateKeyPath: args[i+1],
-				PublicKeyPath:  args[i+1] + ".pub",
+				PrivateKeyPath: privateKeyPath,
+				PublicKeyPath:  privateKeyPath + ".pub",
 			}, false, nil
 		}
 
@@ -636,7 +645,8 @@ func (a *App) printOpenSSHConfig(ctx context.Context, opts sshOptions) (err erro
 		return fmt.Errorf("error formatting template: %w", err)
 	}
 
-	automaticIdentityFilePath, err := automaticPrivateKeyPath()
+	sshContext := ssh.Context{}
+	automaticIdentityFilePath, err := automaticPrivateKeyPath(sshContext)
 	if err != nil {
 		return fmt.Errorf("error finding .ssh directory: %w", err)
 	}
@@ -683,8 +693,8 @@ func (a *App) printOpenSSHConfig(ctx context.Context, opts sshOptions) (err erro
 	return status
 }
 
-func automaticPrivateKeyPath() (string, error) {
-	sshDir, err := config.HomeDirPath(".ssh")
+func automaticPrivateKeyPath(sshContext ssh.Context) (string, error) {
+	sshDir, err := sshContext.SshDir()
 	if err != nil {
 		return "", err
 	}

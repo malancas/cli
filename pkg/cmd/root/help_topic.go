@@ -41,17 +41,18 @@ var HelpTopics = []helpTopic{
 	{
 		name:  "environment",
 		short: "Environment variables that can be used with gh",
-		long: heredoc.Docf(`
-			%[1]sGH_TOKEN%[1]s, %[1]sGITHUB_TOKEN%[1]s (in order of precedence): an authentication token for github.com
-			API requests. Setting this avoids being prompted to authenticate and takes precedence over
-			previously stored credentials.
+		long: heredoc.Docf(`	
+			%[1]sGH_TOKEN%[1]s, %[1]sGITHUB_TOKEN%[1]s (in order of precedence): an authentication token that will be used when
+			a command targets either github.com or a subdomain of ghe.com. Setting this avoids being prompted to
+			authenticate and takes precedence over previously stored credentials.
 
-			%[1]sGH_ENTERPRISE_TOKEN%[1]s, %[1]sGITHUB_ENTERPRISE_TOKEN%[1]s (in order of precedence): an authentication
-			token for API requests to GitHub Enterprise. When setting this, also set %[1]sGH_HOST%[1]s.
+			%[1]sGH_ENTERPRISE_TOKEN%[1]s, %[1]sGITHUB_ENTERPRISE_TOKEN%[1]s (in order of precedence): an authentication 
+			token that will be used when a command targets a GitHub Enterprise Server host.
 
-			%[1]sGH_HOST%[1]s: specify the GitHub hostname for commands that would otherwise assume the
-			"github.com" host when not in a context of an existing repository. When setting this, 
-			also set %[1]sGH_ENTERPRISE_TOKEN%[1]s.
+			%[1]sGH_HOST%[1]s: specify the GitHub hostname for commands where a hostname has not been provided, or
+			cannot be inferred from the context of a local Git repository. If this host was previously
+			authenticated with, the stored credentials will be used. Otherwise, setting %[1]sGH_TOKEN%[1]s or
+			%[1]sGH_ENTERPRISE_TOKEN%[1]s is required, depending on the targeted host.
 
 			%[1]sGH_REPO%[1]s: specify the GitHub repository in the %[1]s[HOST/]OWNER/REPO%[1]s format for commands
 			that otherwise operate on a local repository.
@@ -99,6 +100,10 @@ var HelpTopics = []helpTopic{
 
 			%[1]sGH_PATH%[1]s: set the path to the gh executable, useful for when gh can not properly determine
 			its own path such as in the cygwin terminal.
+
+			%[1]sGH_MDWIDTH%[1]s: default maximum width for markdown render wrapping.  The max width of lines
+			wrapped on the terminal will be taken as the lesser of the terminal width, this value, or 120 if
+			not specified.  This value is used, for example, with %[1]spr view%[1]s subcommand.
 		`, "`"),
 	},
 	{
@@ -158,25 +163,25 @@ var HelpTopics = []helpTopic{
 			$ gh pr list --json number,title,author
 			[
 			  {
-				"author": {
-				  "login": "monalisa"
-				},
-				"number": 123,
-				"title": "A helpful contribution"
+			    "author": {
+			      "login": "monalisa"
+			    },
+			    "number": 123,
+			    "title": "A helpful contribution"
 			  },
 			  {
-				"author": {
-				  "login": "codercat"
-				},
-				"number": 124,
-				"title": "Improve the docs"
+			    "author": {
+			      "login": "codercat"
+			    },
+			    "number": 124,
+			    "title": "Improve the docs"
 			  },
 			  {
-				"author": {
-				  "login": "cli-maintainer"
-				},
-				"number": 125,
-				"title": "An exciting new feature"
+			    "author": {
+			      "login": "cli-maintainer"
+			    },
+			    "number": 125,
+			    "title": "An exciting new feature"
 			  }
 			]
 
@@ -193,32 +198,31 @@ var HelpTopics = []helpTopic{
 			  | map(.labels = (.labels | map(.name))) # show only the label names
 			  | .[:3]                                 # select the first 3 results'
 			  [
-				{
-				  "labels": [
-					"enhancement",
-					"needs triage"
-				  ],
-				  "number": 123,
-				  "title": "A helpful contribution"
-				},
-				{
-				  "labels": [
-					"help wanted",
-					"docs",
-					"good first issue"
-				  ],
-				  "number": 125,
-				  "title": "Improve the docs"
-				},
-				{
-				  "labels": [
-					"enhancement",
-				  ],
-				  "number": 7221,
-				  "title": "An exciting new feature"
-				}
+			    {
+			      "labels": [
+			        "enhancement",
+			        "needs triage"
+			      ],
+			      "number": 123,
+			      "title": "A helpful contribution"
+			    },
+			    {
+			      "labels": [
+			        "help wanted",
+			        "docs",
+			        "good first issue"
+			      ],
+			      "number": 125,
+			      "title": "Improve the docs"
+			    },
+			    {
+			      "labels": [
+			        "enhancement",
+			      ],
+			      "number": 7221,
+			      "title": "An exciting new feature"
+			    }
 			  ]
-			  
 			# using the --template flag with the hyperlink helper
 			gh issue list --json title,url --template '{{range .}}{{hyperlink .url .title}}{{"\n"}}{{end}}'
 
@@ -266,7 +270,7 @@ var HelpTopics = []helpTopic{
 
 			- If a command is running but gets cancelled, the exit code will be 2
 
-			- If a command encounters an authentication issue, the exit code will be 4
+			- If a command requires authentication, the exit code will be 4
 
 			NOTE: It is possible that a particular command may have more exit codes, so it is a good
 			practice to check documentation for the command if you are relying on exit codes to

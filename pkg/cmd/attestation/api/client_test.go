@@ -62,14 +62,14 @@ func TestGetByDigest(t *testing.T) {
 
 	require.Equal(t, 5, len(attestations))
 	bundle := (attestations)[0].Bundle
-	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle+json;version=0.1")
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
 
 	attestations, err = c.GetByOwnerAndDigest(testOwner, testDigest, DefaultLimit)
 	require.NoError(t, err)
 
 	require.Equal(t, 5, len(attestations))
 	bundle = (attestations)[0].Bundle
-	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle+json;version=0.1")
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
 }
 
 func TestGetByDigestGreaterThanLimit(t *testing.T) {
@@ -82,14 +82,14 @@ func TestGetByDigestGreaterThanLimit(t *testing.T) {
 
 	require.Equal(t, 3, len(attestations))
 	bundle := (attestations)[0].Bundle
-	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle+json;version=0.1")
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
 
 	attestations, err = c.GetByOwnerAndDigest(testOwner, testDigest, limit)
 	require.NoError(t, err)
 
 	require.Equal(t, len(attestations), limit)
 	bundle = (attestations)[0].Bundle
-	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle+json;version=0.1")
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
 }
 
 func TestGetByDigestWithNextPage(t *testing.T) {
@@ -99,14 +99,14 @@ func TestGetByDigestWithNextPage(t *testing.T) {
 
 	require.Equal(t, len(attestations), 10)
 	bundle := (attestations)[0].Bundle
-	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle+json;version=0.1")
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
 
 	attestations, err = c.GetByOwnerAndDigest(testOwner, testDigest, DefaultLimit)
 	require.NoError(t, err)
 
 	require.Equal(t, len(attestations), 10)
 	bundle = (attestations)[0].Bundle
-	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle+json;version=0.1")
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
 }
 
 func TestGetByDigestGreaterThanLimitWithNextPage(t *testing.T) {
@@ -119,14 +119,14 @@ func TestGetByDigestGreaterThanLimitWithNextPage(t *testing.T) {
 
 	require.Equal(t, len(attestations), limit)
 	bundle := (attestations)[0].Bundle
-	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle+json;version=0.1")
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
 
 	attestations, err = c.GetByOwnerAndDigest(testOwner, testDigest, limit)
 	require.NoError(t, err)
 
 	require.Equal(t, len(attestations), limit)
 	bundle = (attestations)[0].Bundle
-	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle+json;version=0.1")
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
 }
 
 func TestGetByDigest_NoAttestationsFound(t *testing.T) {
@@ -171,4 +171,95 @@ func TestGetByDigest_Error(t *testing.T) {
 	attestations, err = c.GetByOwnerAndDigest(testOwner, testDigest, DefaultLimit)
 	require.Error(t, err)
 	require.Nil(t, attestations)
+}
+
+func TestGetTrustDomain(t *testing.T) {
+	fetcher := mockMetaGenerator{
+		TrustDomain: "foo",
+	}
+
+	t.Run("with returned trust domain", func(t *testing.T) {
+		c := LiveClient{
+			api: mockAPIClient{
+				OnREST: fetcher.OnREST,
+			},
+			logger: io.NewTestHandler(),
+		}
+		td, err := c.GetTrustDomain()
+		require.Nil(t, err)
+		require.Equal(t, "foo", td)
+
+	})
+
+	t.Run("with error", func(t *testing.T) {
+		c := LiveClient{
+			api: mockAPIClient{
+				OnREST: fetcher.OnRESTError,
+			},
+			logger: io.NewTestHandler(),
+		}
+		td, err := c.GetTrustDomain()
+		require.Equal(t, "", td)
+		require.ErrorContains(t, err, "test error")
+	})
+
+}
+
+func TestGetAttestationsRetries(t *testing.T) {
+	getAttestationRetryInterval = 0
+
+	fetcher := mockDataGenerator{
+		NumAttestations: 5,
+	}
+
+	c := &LiveClient{
+		api: mockAPIClient{
+			OnRESTWithNext: fetcher.FlakyOnRESTSuccessWithNextPageHandler(),
+		},
+		logger: io.NewTestHandler(),
+	}
+
+	attestations, err := c.GetByRepoAndDigest(testRepo, testDigest, DefaultLimit)
+	require.NoError(t, err)
+
+	// assert the error path was executed; because this is a paged
+	// request, it should have errored twice
+	fetcher.AssertNumberOfCalls(t, "FlakyOnRESTSuccessWithNextPage:error", 2)
+
+	// but we still successfully got the right data
+	require.Equal(t, len(attestations), 10)
+	bundle := (attestations)[0].Bundle
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
+
+	// same test as above, but for GetByOwnerAndDigest:
+	attestations, err = c.GetByOwnerAndDigest(testOwner, testDigest, DefaultLimit)
+	require.NoError(t, err)
+
+	// because we haven't reset the mock, we have added 2 more failed requests
+	fetcher.AssertNumberOfCalls(t, "FlakyOnRESTSuccessWithNextPage:error", 4)
+
+	require.Equal(t, len(attestations), 10)
+	bundle = (attestations)[0].Bundle
+	require.Equal(t, bundle.GetMediaType(), "application/vnd.dev.sigstore.bundle.v0.3+json")
+}
+
+// test total retries
+func TestGetAttestationsMaxRetries(t *testing.T) {
+	getAttestationRetryInterval = 0
+
+	fetcher := mockDataGenerator{
+		NumAttestations: 5,
+	}
+
+	c := &LiveClient{
+		api: mockAPIClient{
+			OnRESTWithNext: fetcher.OnREST500ErrorHandler(),
+		},
+		logger: io.NewTestHandler(),
+	}
+
+	_, err := c.GetByRepoAndDigest(testRepo, testDigest, DefaultLimit)
+	require.Error(t, err)
+
+	fetcher.AssertNumberOfCalls(t, "OnREST500Error", 4)
 }

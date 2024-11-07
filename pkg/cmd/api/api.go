@@ -17,7 +17,7 @@ import (
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/cli/v2/api"
-	"github.com/cli/cli/v2/internal/config"
+	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/ghinstance"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/pkg/cmd/factory"
@@ -37,7 +37,7 @@ type ApiOptions struct {
 	AppVersion string
 	BaseRepo   func() (ghrepo.Interface, error)
 	Branch     func() (string, error)
-	Config     func() (config.Config, error)
+	Config     func() (gh.Config, error)
 	HttpClient func() (*http.Client, error)
 	IO         *iostreams.IOStreams
 
@@ -149,8 +149,8 @@ func NewCmdApi(f *cmdutil.Factory, runF func(*ApiOptions) error) *cobra.Command 
 			$ gh api repos/{owner}/{repo}/issues --template \
 			  '{{range .}}{{.title}} ({{.labels | pluck "name" | join ", " | color "yellow"}}){{"\n"}}{{end}}'
 
-			# update allowed values of the "environment" custom property in a deeply nested array 
-			gh api --PATCH /orgs/{org}/properties/schema \
+			# update allowed values of the "environment" custom property in a deeply nested array
+			gh api -X PATCH /orgs/{org}/properties/schema \
 			   -F 'properties[][property_name]=environment' \
 			   -F 'properties[][default_value]=production' \
 			   -F 'properties[][allowed_values][]=staging' \
@@ -309,6 +309,14 @@ func apiRun(opts *ApiOptions) error {
 		method = "POST"
 	}
 
+	if !opts.Silent {
+		if err := opts.IO.StartPager(); err == nil {
+			defer opts.IO.StopPager()
+		} else {
+			fmt.Fprintf(opts.IO.ErrOut, "failed to start pager: %v\n", err)
+		}
+	}
+
 	var bodyWriter io.Writer = opts.IO.Out
 	var headersWriter io.Writer = opts.IO.Out
 	if opts.Silent {
@@ -324,19 +332,13 @@ func apiRun(opts *ApiOptions) error {
 		requestPath = addPerPage(requestPath, 100, params)
 	}
 
-	// Execute defers in FIFO order.
-	deferQueue := queue{}
-	defer deferQueue.Close()
-
 	// Similar to `jq --slurp`, write all pages JSON arrays or objects into a JSON array.
 	if opts.Paginate && opts.Slurp {
 		w := &jsonArrayWriter{
 			Writer: bodyWriter,
 			color:  opts.IO.ColorEnabled(),
 		}
-		deferQueue.Enqueue(func() {
-			_ = w.Close()
-		})
+		defer w.Close()
 
 		bodyWriter = w
 	}
@@ -384,14 +386,6 @@ func apiRun(opts *ApiOptions) error {
 	httpClient, err := opts.HttpClient()
 	if err != nil {
 		return err
-	}
-
-	if !opts.Silent {
-		if err := opts.IO.StartPager(); err == nil {
-			deferQueue.Enqueue(opts.IO.StopPager)
-		} else {
-			fmt.Fprintf(opts.IO.ErrOut, "failed to start pager: %v\n", err)
-		}
 	}
 
 	host, _ := cfg.Authentication().DefaultHost()
@@ -692,16 +686,4 @@ func previewNamesToMIMETypes(names []string) string {
 		types = append(types, fmt.Sprintf("application/vnd.github.%s-preview", p))
 	}
 	return strings.Join(types, ", ")
-}
-
-type queue []func()
-
-func (q *queue) Enqueue(f func()) {
-	*q = append(*q, f)
-}
-
-func (q *queue) Close() {
-	for _, f := range *q {
-		f()
-	}
 }

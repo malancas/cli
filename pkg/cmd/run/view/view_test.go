@@ -15,6 +15,7 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/cli/v2/internal/browser"
 	"github.com/cli/cli/v2/internal/config"
+	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/internal/prompter"
 	"github.com/cli/cli/v2/pkg/cmd/run/shared"
@@ -140,7 +141,7 @@ func TestNewCmdView(t *testing.T) {
 
 			f := &cmdutil.Factory{
 				IOStreams: ios,
-				Config: func() (config.Config, error) {
+				Config: func() (gh.Config, error) {
 					return config.NewBlankConfig(), nil
 				},
 			}
@@ -1182,7 +1183,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.TestWorkflow))
 			},
 			browsedURL: "https://github.com/runs/3",
-			wantOut:    "Opening github.com/runs/3 in your browser.\n",
+			wantOut:    "Opening https://github.com/runs/3 in your browser.\n",
 		},
 		{
 			name: "web job",
@@ -1203,7 +1204,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.TestWorkflow))
 			},
 			browsedURL: "https://github.com/jobs/10?check_suite_focus=true",
-			wantOut:    "Opening github.com/jobs/10 in your browser.\n",
+			wantOut:    "Opening https://github.com/jobs/10 in your browser.\n",
 		},
 		{
 			name: "hide job header, failure",
@@ -1319,6 +1320,38 @@ func TestViewRun(t *testing.T) {
 			errMsg:  "failed to get annotations: HTTP 500 (https://api.github.com/repos/OWNER/REPO/check-runs/20/annotations)",
 			wantErr: true,
 		},
+		{
+			name: "annotation endpoint forbidden (fine grained tokens)",
+			tty:  true,
+			opts: &ViewOptions{
+				RunID: "1234",
+			},
+			httpStubs: func(reg *httpmock.Registry) {
+				reg.Register(
+					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234"),
+					httpmock.JSONResponse(shared.FailedRun))
+				reg.Register(
+					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
+					httpmock.JSONResponse(shared.TestWorkflow))
+				reg.Register(
+					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/artifacts"),
+					httpmock.StringResponse(`{}`))
+				reg.Register(
+					httpmock.GraphQL(`query PullRequestForRun`),
+					httpmock.StringResponse(``))
+				reg.Register(
+					httpmock.REST("GET", "runs/1234/jobs"),
+					httpmock.JSONResponse(shared.JobsPayload{
+						Jobs: []shared.Job{
+							shared.FailedJob,
+						},
+					}))
+				reg.Register(
+					httpmock.REST("GET", "repos/OWNER/REPO/check-runs/20/annotations"),
+					httpmock.StatusStringResponse(403, "Forbidden"))
+			},
+			wantOut: "\nX trunk CI · 1234\nTriggered via push about 59 minutes ago\n\nJOBS\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nrequesting annotations returned 403 Forbidden as the token does not have sufficient permissions. Note that it is not currently possible to create a fine-grained PAT with the `checks:read` permission.\n\nTo see what failed, try: gh run view 1234 --log-failed\nView this run on GitHub: https://github.com/runs/1234\n",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1376,6 +1409,8 @@ func TestViewRun(t *testing.T) {
 }
 
 // Structure of fixture zip file
+// To see the structure of fixture zip file, run:
+// `❯ unzip -lv pkg/cmd/run/view/fixtures/run_log.zip`
 //
 //	run log/
 //	├── cool job/
@@ -1487,23 +1522,61 @@ func Test_attachRunLog(t *testing.T) {
 			// not the double space in the dir name, as the slash has been removed
 			wantFilename: "cool job  with slash/1_fob the barz.txt",
 		},
+		{
+			name: "job name with colon matches dir with colon removed",
+			job: shared.Job{
+				Name: "cool job : with colon",
+				Steps: []shared.Step{{
+					Name:   "fob the barz",
+					Number: 1,
+				}},
+			},
+			wantMatch:    true,
+			wantFilename: "cool job  with colon/1_fob the barz.txt",
+		},
+		{
+			name: "Job name with really long name (over the ZIP limit)",
+			job: shared.Job{
+				Name: "thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_",
+				Steps: []shared.Step{{
+					Name:   "Long Name Job",
+					Number: 1,
+				}},
+			},
+			wantMatch:    true,
+			wantFilename: "thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_thisisnine/1_Long Name Job.txt",
+		},
+		{
+			name: "Job name that would be truncated by the C# server to split a grapheme",
+			job: shared.Job{
+				Name: "Emoji Test 😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅",
+				Steps: []shared.Step{{
+					Name:   "Emoji Job",
+					Number: 1,
+				}},
+			},
+			wantMatch:    true,
+			wantFilename: "Emoji Test 😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅�/1_Emoji Job.txt",
+		},
 	}
 
-	rlz, err := zip.OpenReader("./fixtures/run_log.zip")
+	run_log_zip_reader, err := zip.OpenReader("./fixtures/run_log.zip")
 	require.NoError(t, err)
-	defer rlz.Close()
+	defer run_log_zip_reader.Close()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			attachRunLog(&rlz.Reader, []shared.Job{tt.job})
+			attachRunLog(&run_log_zip_reader.Reader, []shared.Job{tt.job})
+
+			t.Logf("Job details: ")
 
 			for _, step := range tt.job.Steps {
 				log := step.Log
 				logPresent := log != nil
-				require.Equal(t, tt.wantMatch, logPresent)
+				require.Equal(t, tt.wantMatch, logPresent, "log not present")
 				if logPresent {
-					require.Equal(t, tt.wantFilename, log.Name)
+					require.Equal(t, tt.wantFilename, log.Name, "Filename mismatch")
 				}
 			}
 		})

@@ -17,6 +17,7 @@ import (
 	"github.com/cli/cli/v2/api"
 	"github.com/cli/cli/v2/git"
 	"github.com/cli/cli/v2/internal/config"
+	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/pkg/extensions"
 	"github.com/cli/cli/v2/pkg/findsh"
@@ -28,6 +29,8 @@ import (
 // ErrInitialCommitFailed indicates the initial commit when making a new extension failed.
 var ErrInitialCommitFailed = errors.New("initial commit failed")
 
+const darwinAmd64 = "darwin-amd64"
+
 type Manager struct {
 	dataDir    func() string
 	lookPath   func(string) (string, error)
@@ -36,7 +39,7 @@ type Manager struct {
 	platform   func() (string, string)
 	client     *http.Client
 	gitClient  gitClient
-	config     config.Config
+	config     gh.Config
 	io         *iostreams.IOStreams
 	dryRunMode bool
 }
@@ -59,7 +62,7 @@ func NewManager(ios *iostreams.IOStreams, gc *git.Client) *Manager {
 	}
 }
 
-func (m *Manager) SetConfig(cfg config.Config) {
+func (m *Manager) SetConfig(cfg gh.Config) {
 	m.config = cfg
 }
 
@@ -262,10 +265,19 @@ func (m *Manager) installBin(repo ghrepo.Interface, target string) error {
 		}
 	}
 
-	// if an arm64 binary is unavailable, fall back to amd64 if it can be executed through Rosetta 2
-	if asset == nil && isMacARM && hasRosetta() {
+	// if using an ARM-based Mac and an arm64 binary is unavailable, fall back to amd64 if a relevant binary is available and Rosetta 2 is installed
+	if asset == nil && isMacARM {
 		for _, a := range r.Assets {
-			if strings.HasSuffix(a.Name, "darwin-amd64") {
+			if strings.HasSuffix(a.Name, darwinAmd64) {
+				if !hasRosetta() {
+					return fmt.Errorf(
+						"%[1]s unsupported for %[2]s. Install Rosetta with `softwareupdate --install-rosetta` to use the available %[3]s binary, or open an issue: `gh issue create -R %[4]s/%[1]s -t'Support %[2]s'`",
+						repo.RepoName(), platform, darwinAmd64, repo.RepoOwner())
+				}
+
+				fallbackMessage := fmt.Sprintf("%[1]s not available for %[2]s. Falling back to compatible %[3]s binary", repo.RepoName(), platform, darwinAmd64)
+				fmt.Fprintln(m.io.Out, fallbackMessage)
+
 				asset = &a
 				break
 			}
@@ -273,9 +285,13 @@ func (m *Manager) installBin(repo ghrepo.Interface, target string) error {
 	}
 
 	if asset == nil {
+		cs := m.io.ColorScheme()
+		errorMessageInRed := fmt.Sprintf(cs.Red("%[1]s unsupported for %[2]s."), repo.RepoName(), platform)
+		issueCreateCommand := generateMissingBinaryIssueCreateCommand(repo.RepoOwner(), repo.RepoName(), platform)
+
 		return fmt.Errorf(
-			"%[1]s unsupported for %[2]s. Open an issue: `gh issue create -R %[3]s/%[1]s -t'Support %[2]s'`",
-			repo.RepoName(), platform, repo.RepoOwner())
+			"%[1]s\n\nTo request support for %[2]s, open an issue on the extension's repo by running the following command:\n\n	`%[3]s`",
+			errorMessageInRed, platform, issueCreateCommand)
 	}
 
 	name := repo.RepoName()
@@ -327,6 +343,15 @@ func (m *Manager) installBin(repo ghrepo.Interface, target string) error {
 	return nil
 }
 
+func generateMissingBinaryIssueCreateCommand(repoOwner string, repoName string, currentPlatform string) string {
+	issueBody := generateMissingBinaryIssueBody(currentPlatform)
+	return fmt.Sprintf("gh issue create -R %[1]s/%[2]s --title \"Add support for the %[3]s architecture\" --body \"%[4]s\"", repoOwner, repoName, currentPlatform, issueBody)
+}
+
+func generateMissingBinaryIssueBody(currentPlatform string) string {
+	return fmt.Sprintf("This extension does not support the %[1]s architecture. I tried to install it on a %[1]s machine, and it failed due to the lack of an available binary. Would you be able to update the extension's build and release process to include the relevant binary? For more details, see <https://docs.github.com/en/github-cli/github-cli/creating-github-cli-extensions>.", currentPlatform)
+}
+
 func writeManifest(dir, name string, data []byte) (writeErr error) {
 	path := filepath.Join(dir, name)
 	var f *os.File
@@ -346,7 +371,7 @@ func writeManifest(dir, name string, data []byte) (writeErr error) {
 }
 
 func (m *Manager) installGit(repo ghrepo.Interface, target string) error {
-	protocol := m.config.GitProtocol(repo.RepoHost())
+	protocol := m.config.GitProtocol(repo.RepoHost()).Value
 	cloneURL := ghrepo.FormatRemoteURL(repo, protocol)
 
 	var commitSHA string
@@ -764,7 +789,7 @@ func possibleDists() []string {
 	}
 }
 
-func hasRosetta() bool {
+var hasRosetta = func() bool {
 	_, err := os.Stat("/Library/Apple/usr/libexec/oah/libRosettaRuntime")
 	return err == nil
 }

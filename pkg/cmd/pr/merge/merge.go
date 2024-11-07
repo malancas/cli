@@ -10,7 +10,7 @@ import (
 	"github.com/cli/cli/v2/api"
 	ghContext "github.com/cli/cli/v2/context"
 	"github.com/cli/cli/v2/git"
-	"github.com/cli/cli/v2/internal/config"
+	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/ghrepo"
 	"github.com/cli/cli/v2/pkg/cmd/pr/shared"
 	"github.com/cli/cli/v2/pkg/cmdutil"
@@ -88,7 +88,7 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
 			If required checks have not yet passed, auto-merge will be enabled.
 			If required checks have passed, the pull request will be added to the merge queue.
 			To bypass a merge queue and merge directly, pass the %[1]s--admin%[1]s flag.
-    	`, "`"),
+		`, "`"),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.Finder = shared.NewFinder(f)
@@ -680,7 +680,7 @@ func confirmSubmission(client *http.Client, opts *MergeOptions, action shared.Ac
 
 type userEditor struct {
 	io     *iostreams.IOStreams
-	config func() (config.Config, error)
+	config func() (gh.Config, error)
 }
 
 func (e *userEditor) Edit(filename, startingText string) (string, error) {

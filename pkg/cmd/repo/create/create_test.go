@@ -9,6 +9,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cli/cli/v2/git"
 	"github.com/cli/cli/v2/internal/config"
+	"github.com/cli/cli/v2/internal/gh"
 	"github.com/cli/cli/v2/internal/prompter"
 	"github.com/cli/cli/v2/internal/run"
 	"github.com/cli/cli/v2/pkg/cmdutil"
@@ -831,7 +832,7 @@ func Test_createRun(t *testing.T) {
 		tt.opts.HttpClient = func() (*http.Client, error) {
 			return &http.Client{Transport: reg}, nil
 		}
-		tt.opts.Config = func() (config.Config, error) {
+		tt.opts.Config = func() (gh.Config, error) {
 			return config.NewBlankConfig(), nil
 		}
 
@@ -862,6 +863,30 @@ func Test_createRun(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantStdout, stdout.String())
 			assert.Equal(t, "", stderr.String())
+		})
+	}
+}
+
+func Test_getRepoVisibilityOptions(t *testing.T) {
+	tests := []struct {
+		name  string
+		owner string
+		want  []string
+	}{
+		{
+			name:  "user repo",
+			owner: "",
+			want:  []string{"Public", "Private"},
+		},
+		{
+			name:  "org repo",
+			owner: "fooOrg",
+			want:  []string{"Public", "Private", "Internal"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, getRepoVisibilityOptions(tt.owner))
 		})
 	}
 }

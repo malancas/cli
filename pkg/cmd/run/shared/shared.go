@@ -72,6 +72,7 @@ var RunFields = []string{
 	"createdAt",
 	"updatedAt",
 	"startedAt",
+	"attempt",
 	"status",
 	"conclusion",
 	"event",
@@ -97,7 +98,7 @@ type Run struct {
 	workflowName   string // cache column
 	WorkflowID     int64  `json:"workflow_id"`
 	Number         int64  `json:"run_number"`
-	Attempts       uint64 `json:"run_attempt"`
+	Attempt        uint64 `json:"run_attempt"`
 	HeadBranch     string `json:"head_branch"`
 	JobsURL        string `json:"jobs_url"`
 	HeadCommit     Commit `json:"head_commit"`
@@ -179,16 +180,22 @@ func (r *Run) ExportData(fields []string) map[string]interface{} {
 			for _, j := range r.Jobs {
 				steps := make([]interface{}, 0, len(j.Steps))
 				for _, s := range j.Steps {
+					var stepCompletedAt time.Time
+					if !s.CompletedAt.IsZero() {
+						stepCompletedAt = s.CompletedAt
+					}
 					steps = append(steps, map[string]interface{}{
-						"name":       s.Name,
-						"status":     s.Status,
-						"conclusion": s.Conclusion,
-						"number":     s.Number,
+						"name":        s.Name,
+						"status":      s.Status,
+						"conclusion":  s.Conclusion,
+						"number":      s.Number,
+						"startedAt":   s.StartedAt,
+						"completedAt": stepCompletedAt,
 					})
 				}
-				var completedAt time.Time
+				var jobCompletedAt time.Time
 				if !j.CompletedAt.IsZero() {
-					completedAt = j.CompletedAt
+					jobCompletedAt = j.CompletedAt
 				}
 				jobs = append(jobs, map[string]interface{}{
 					"databaseId":  j.ID,
@@ -197,7 +204,7 @@ func (r *Run) ExportData(fields []string) map[string]interface{} {
 					"name":        j.Name,
 					"steps":       steps,
 					"startedAt":   j.StartedAt,
-					"completedAt": completedAt,
+					"completedAt": jobCompletedAt,
 					"url":         j.URL,
 				})
 			}
@@ -224,11 +231,13 @@ type Job struct {
 }
 
 type Step struct {
-	Name       string
-	Status     Status
-	Conclusion Conclusion
-	Number     int
-	Log        *zip.File
+	Name        string
+	Status      Status
+	Conclusion  Conclusion
+	Number      int
+	StartedAt   time.Time `json:"started_at"`
+	CompletedAt time.Time `json:"completed_at"`
+	Log         *zip.File
 }
 
 type Steps []Step
@@ -260,6 +269,14 @@ type CheckRun struct {
 	ID int64
 }
 
+var ErrMissingAnnotationsPermissions = errors.New("missing annotations permissions error")
+
+// GetAnnotations fetches annotations from the REST API.
+//
+// If the job has no annotations, an empy slice is returned.
+// If the API returns a 403, a custom ErrMissingAnnotationsPermissions error is returned.
+//
+// When fine-grained PATs support checks:read permission, we can remove the need for this at the call sites.
 func GetAnnotations(client *api.Client, repo ghrepo.Interface, job Job) ([]Annotation, error) {
 	var result []*Annotation
 
@@ -268,9 +285,18 @@ func GetAnnotations(client *api.Client, repo ghrepo.Interface, job Job) ([]Annot
 	err := client.REST(repo.RepoHost(), "GET", path, nil, &result)
 	if err != nil {
 		var httpError api.HTTPError
-		if errors.As(err, &httpError) && httpError.StatusCode == 404 {
+		if !errors.As(err, &httpError) {
+			return nil, err
+		}
+
+		if httpError.StatusCode == http.StatusNotFound {
 			return []Annotation{}, nil
 		}
+
+		if httpError.StatusCode == http.StatusForbidden {
+			return nil, ErrMissingAnnotationsPermissions
+		}
+
 		return nil, err
 	}
 
