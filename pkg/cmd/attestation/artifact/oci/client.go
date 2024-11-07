@@ -41,10 +41,6 @@ type LiveClient struct {
 	get            func(name.Reference, ...remote.Option) (*remote.Descriptor, error)
 }
 
-func (c LiveClient) ParseReference(ref string) (name.Reference, error) {
-	return c.parseReference(ref)
-}
-
 // where name is formed like ghcr.io/github/my-image-repo
 func (c LiveClient) GetImageDigest(imgName string) (*v1.Hash, name.Reference, error) {
 	name, err := c.parseReference(imgName)
@@ -94,31 +90,29 @@ func (c LiveClient) GetAttestations(ref name.Reference, digest string) ([]*api.A
 			return attestations, fmt.Errorf("error getting referrer image: %w", err)
 		}
 
-		if len(layers) > 0 {
-			layer0, err := layers[0].Uncompressed()
-			if err != nil {
-				return attestations, fmt.Errorf("error getting referrer image: %w", err)
-			}
-			defer layer0.Close()
-
-			bundleBytes, err := io.ReadAll(layer0)
-
-			if err != nil {
-				return attestations, fmt.Errorf("error getting referrer image: %w", err)
-			}
-
-			b := &bundle.Bundle{}
-			err = b.UnmarshalJSON(bundleBytes)
-
-			if err != nil {
-				return attestations, fmt.Errorf("error unmarshalling bundle: %w", err)
-			}
-
-			a := api.Attestation{Bundle: b}
-			attestations = append(attestations, &a)
-		} else {
+		if len(layers) == 0 {
 			return attestations, fmt.Errorf("error getting referrer image: no layers found")
 		}
+
+		layer0, err := layers[0].Uncompressed()
+		if err != nil {
+			return attestations, fmt.Errorf("error getting referrer image: %w", err)
+		}
+		defer layer0.Close()
+
+		bundleBytes, err := io.ReadAll(layer0)
+
+		if err != nil {
+			return attestations, fmt.Errorf("error getting referrer image: %w", err)
+		}
+
+		b := &bundle.Bundle{}
+		if err = b.UnmarshalJSON(bundleBytes); err != nil {
+			return attestations, fmt.Errorf("error unmarshalling bundle: %w", err)
+		}
+
+		a := api.Attestation{Bundle: b}
+		attestations = append(attestations, &a)
 	}
 	return attestations, nil
 }
