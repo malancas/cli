@@ -302,17 +302,12 @@ func runVerify(opts *Options) error {
 	opts.Logger.Printf("%s was attested by:\n", artifact.DigestWithAlg())
 
 	// Otherwise print the results to the terminal in a table
-	tableContent, err := buildTableVerifyContent(opts.Tenant, verifyResults)
+	output, err := buildVerifyOutput(opts.Tenant, verifyResults)
 	if err != nil {
 		opts.Logger.Println(opts.Logger.ColorScheme.Red("failed to parse results"))
 		return err
 	}
-
-	headers := []string{"repo", "predicate_type", "workflow"}
-	if err = opts.Logger.PrintTable(headers, tableContent); err != nil {
-		opts.Logger.Println(opts.Logger.ColorScheme.Red("failed to print attestation details to table"))
-		return err
-	}
+	opts.Logger.Println(output)
 
 	// All attestations passed verification and policy evaluation
 	return nil
@@ -355,25 +350,44 @@ func extractAttestationDetail(tenant, builderSignerURI string) (string, string, 
 	return orgAndRepo, workflow, nil
 }
 
-func buildTableVerifyContent(tenant string, results []*verification.AttestationProcessingResult) ([][]string, error) {
-	content := make([][]string, len(results))
+func buildAttestationContent(i int, tenant string, r *verification.AttestationProcessingResult) (string, error) {
+	if r.VerificationResult == nil ||
+		r.VerificationResult.Signature == nil ||
+		r.VerificationResult.Signature.Certificate == nil {
+		return "", fmt.Errorf("bundle missing verification result fields")
+	}
+
+	builderSignerURI := r.VerificationResult.Signature.Certificate.Extensions.BuildSignerURI
+	signerSourceOrgAndRepo, signerWorkflow, err := extractAttestationDetail(tenant, builderSignerURI)
+	if err != nil {
+		return "", fmt.Errorf("could not parse BuildSignerURI", err)
+	}
+	buildConfigURI := r.VerificationResult.Signature.Certificate.Extensions.BuildConfigURI
+	buildSourceOrgAndRepo, buildWorkflow, err := extractAttestationDetail(tenant, buildConfigURI)
+	if err != nil {
+		return "", fmt.Errorf("could not parse BuildSignerURI", err)
+	}
+
+	template :=
+		`
+* Attestation #%d
+  * Built by workflow %s in repository %s
+  * Signed by workflow %s in repository %s
+`
+	content := fmt.Sprintf(template, i, buildWorkflow, buildSourceOrgAndRepo, signerWorkflow, signerSourceOrgAndRepo)
+
+	return content, nil
+}
+
+func buildVerifyOutput(tenant string, results []*verification.AttestationProcessingResult) (string, error) {
+	content := ""
 
 	for i, res := range results {
-		if res.VerificationResult == nil ||
-			res.VerificationResult.Signature == nil ||
-			res.VerificationResult.Signature.Certificate == nil {
-			return nil, fmt.Errorf("bundle missing verification result fields")
-		}
-		builderSignerURI := res.VerificationResult.Signature.Certificate.Extensions.BuildSignerURI
-		repoAndOrg, workflow, err := extractAttestationDetail(tenant, builderSignerURI)
+		ac, err := buildAttestationContent(i+1, tenant, res)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		if res.VerificationResult.Statement == nil {
-			return nil, fmt.Errorf("bundle missing attestation statement (bundle must originate from GitHub Artifact Attestations)")
-		}
-		predicateType := res.VerificationResult.Statement.PredicateType
-		content[i] = []string{repoAndOrg, predicateType, workflow}
+		content += fmt.Sprintf("%s\n", ac)
 	}
 
 	return content, nil
