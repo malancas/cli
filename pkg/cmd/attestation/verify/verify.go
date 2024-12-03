@@ -125,9 +125,6 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 
 			opts.OCIClient = oci.NewLiveClient()
 
-			if opts.Hostname == "" {
-				opts.Hostname, _ = ghauth.DefaultHost()
-			}
 			err = auth.IsHostSupported(opts.Hostname)
 			if err != nil {
 				return err
@@ -195,7 +192,8 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 	verifyCmd.Flags().StringVarP(&opts.SignerWorkflow, "signer-workflow", "", "", "Workflow that signed attestation in the format [host/]<owner>/<repo>/<path>/<to>/<workflow>")
 	verifyCmd.MarkFlagsMutuallyExclusive("cert-identity", "cert-identity-regex", "signer-repo", "signer-workflow")
 	verifyCmd.Flags().StringVarP(&opts.OIDCIssuer, "cert-oidc-issuer", "", verification.GitHubOIDCIssuer, "Issuer of the OIDC token")
-	verifyCmd.Flags().StringVarP(&opts.Hostname, "hostname", "", "", "Configure host to use")
+	hostname, _ := ghauth.DefaultHost()
+	verifyCmd.Flags().StringVarP(&opts.Hostname, "hostname", "", hostname, "Configure host to use")
 
 	return verifyCmd
 }
