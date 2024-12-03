@@ -295,7 +295,6 @@ func TestVerifyIntegrationReusableWorkflowSignerWorkflow(t *testing.T) {
 		APIClient:        api.NewLiveClient(hc, host, logger),
 		ArtifactPath:     artifactPath,
 		BundlePath:       bundlePath,
-		Config:           cmdFactory.Config,
 		DigestAlgorithm:  "sha256",
 		Logger:           logger,
 		OCIClient:        oci.NewLiveClient(),
