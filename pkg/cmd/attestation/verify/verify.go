@@ -123,14 +123,12 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 				return err
 			}
 
-			opts.OCIClient = oci.NewLiveClient()
-
 			err = auth.IsHostSupported(opts.Hostname)
 			if err != nil {
 				return err
 			}
 
-			opts.APIClient = api.NewLiveClient(hc, opts.Hostname, logger)
+			apiClient := api.NewLiveClient(hc, opts.Hostname, logger)
 
 			sigstoreConfig := verification.SigstoreConfig{
 				TrustedRoot:  opts.TrustedRoot,
@@ -140,7 +138,7 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 
 			// Prepare for tenancy if detected
 			if ghauth.IsTenancy(opts.Hostname) {
-				td, err := opts.APIClient.GetTrustDomain()
+				td, err := apiClient.GetTrustDomain()
 				if err != nil {
 					return fmt.Errorf("error getting trust domain, make sure you are authenticated against the host: %w", err)
 				}
@@ -161,9 +159,15 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 				return runF(opts)
 			}
 
-			opts.SigstoreVerifier = verification.NewLiveSigstoreVerifier(sigstoreConfig)
+			sigstoreVerifier := verification.NewLiveSigstoreVerifier(sigstoreConfig)
 
-			if err := runVerify(opts, logger); err != nil {
+			cfg := &Config{
+				APIClient:        apiClient,
+				OCIClient:        oci.NewLiveClient(),
+				SigstoreVerifier: sigstoreVerifier,
+			}
+
+			if err := runVerify(opts, logger, cfg); err != nil {
 				return fmt.Errorf("\nError: %v", err)
 			}
 			return nil
@@ -198,7 +202,7 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 	return verifyCmd
 }
 
-func runVerify(opts *Options, logger *io.Handler) error {
+func runVerify(opts *Options, logger *io.Handler, cfg *Config) error {
 	ec, err := newEnforcementCriteria(opts)
 	if err != nil {
 		logger.Println(logger.ColorScheme.Red("✗ Failed to build verification policy"))
@@ -210,7 +214,7 @@ func runVerify(opts *Options, logger *io.Handler) error {
 		return err
 	}
 
-	artifact, err := artifact.NewDigestedArtifact(opts.OCIClient, opts.ArtifactPath, opts.DigestAlgorithm)
+	artifact, err := artifact.NewDigestedArtifact(cfg.OCIClient, opts.ArtifactPath, opts.DigestAlgorithm)
 	if err != nil {
 		logger.Printf(logger.ColorScheme.Red("✗ Loading digest for %s failed\n"), opts.ArtifactPath)
 		return err
@@ -241,7 +245,7 @@ func runVerify(opts *Options, logger *io.Handler) error {
 
 	logger.VerbosePrintf("Verifying attestations with predicate type: %s\n", ec.PredicateType)
 
-	verified, errMsg, err := verifyAttestations(*artifact, attestations, opts.SigstoreVerifier, ec)
+	verified, errMsg, err := verifyAttestations(*artifact, attestations, cfg.SigstoreVerifier, ec)
 	if err != nil {
 		logger.Println(logger.ColorScheme.Red(errMsg))
 		return err

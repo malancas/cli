@@ -15,16 +15,11 @@ import (
 // Config captures the configuration for the verify command
 type Config struct {
 	APIClient        api.Client
-	exporter         cmdutil.Exporter
-	Logger           *io.Handler
 	OCIClient        oci.Client
 	SigstoreVerifier verification.SigstoreVerifier
 }
 
-func newConfig(f *cmdutil.Factory, hostname string, trustedRoot string, noPublicGood bool) (*Config, error) {
-	logger := io.NewHandler(f.IOStreams)
-	ociClient := oci.NewLiveClient()
-
+func newConfig(f *cmdutil.Factory, hostname string, trustedRoot string, noPublicGood bool, logger *io.Handler) (*Config, error) {
 	hc, err := f.HttpClient()
 	if err != nil {
 		return nil, err
@@ -44,21 +39,20 @@ func newConfig(f *cmdutil.Factory, hostname string, trustedRoot string, noPublic
 			return nil, fmt.Errorf("error getting trust domain, make sure you are authenticated against the host: %w", err)
 		}
 
-		_, found := ghinstance.TenantName(hostname)
+		tenant, found := ghinstance.TenantName(hostname)
 		if !found {
 			return nil, fmt.Errorf("invalid hostname provided: '%s'",
 				hostname)
 		}
 		sigstoreConfig.TrustDomain = td
-		//opts.Tenant = tenant
+		opts.Tenant = tenant
 	}
 
 	sigstoreVerifier := verification.NewLiveSigstoreVerifier(sigstoreConfig)
 
 	return &Config{
 		APIClient:        apiClient,
-		Logger:           logger,
-		OCIClient:        ociClient,
+		OCIClient:        oci.NewLiveClient(),
 		SigstoreVerifier: sigstoreVerifier,
 	}, nil
 }
