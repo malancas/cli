@@ -101,9 +101,6 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 		// If an error is returned, its message will be printed to the terminal
 		// along with information about how use the command
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Create a logger for use throughout the verify command
-			opts.Logger = io.NewHandler(f.IOStreams)
-
 			// set the artifact path
 			opts.ArtifactPath = args[0]
 
@@ -118,6 +115,9 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Create a logger for use throughout the verify command
+			logger := io.NewHandler(f.IOStreams)
+
 			hc, err := f.HttpClient()
 			if err != nil {
 				return err
@@ -133,11 +133,11 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 				return err
 			}
 
-			opts.APIClient = api.NewLiveClient(hc, opts.Hostname, opts.Logger)
+			opts.APIClient = api.NewLiveClient(hc, opts.Hostname, logger)
 
-			config := verification.SigstoreConfig{
+			sigstoreConfig := verification.SigstoreConfig{
 				TrustedRoot:  opts.TrustedRoot,
-				Logger:       opts.Logger,
+				Logger:       logger,
 				NoPublicGood: opts.NoPublicGood,
 			}
 
@@ -153,7 +153,7 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 					return fmt.Errorf("invalid hostname provided: '%s'",
 						opts.Hostname)
 				}
-				config.TrustDomain = td
+				sigstoreConfig.TrustDomain = td
 				opts.Tenant = tenant
 			}
 
@@ -164,9 +164,9 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 				return runF(opts)
 			}
 
-			opts.SigstoreVerifier = verification.NewLiveSigstoreVerifier(config)
+			opts.SigstoreVerifier = verification.NewLiveSigstoreVerifier(sigstoreConfig)
 
-			if err := runVerify(opts); err != nil {
+			if err := runVerify(opts, logger); err != nil {
 				return fmt.Errorf("\nError: %v", err)
 			}
 			return nil
@@ -200,79 +200,79 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 	return verifyCmd
 }
 
-func runVerify(opts *Options) error {
+func runVerify(opts *Options, logger *io.Handler) error {
 	ec, err := newEnforcementCriteria(opts)
 	if err != nil {
-		opts.Logger.Println(opts.Logger.ColorScheme.Red("✗ Failed to build verification policy"))
+		logger.Println(logger.ColorScheme.Red("✗ Failed to build verification policy"))
 		return err
 	}
 
 	if err := ec.Valid(); err != nil {
-		opts.Logger.Println(opts.Logger.ColorScheme.Red("✗ Invalid verification policy"))
+		logger.Println(logger.ColorScheme.Red("✗ Invalid verification policy"))
 		return err
 	}
 
 	artifact, err := artifact.NewDigestedArtifact(opts.OCIClient, opts.ArtifactPath, opts.DigestAlgorithm)
 	if err != nil {
-		opts.Logger.Printf(opts.Logger.ColorScheme.Red("✗ Loading digest for %s failed\n"), opts.ArtifactPath)
+		logger.Printf(logger.ColorScheme.Red("✗ Loading digest for %s failed\n"), opts.ArtifactPath)
 		return err
 	}
 
-	opts.Logger.Printf("Loaded digest %s for %s\n", artifact.DigestWithAlg(), artifact.URL)
+	logger.Printf("Loaded digest %s for %s\n", artifact.DigestWithAlg(), artifact.URL)
 
 	attestations, logMsg, err := getAttestations(opts, *artifact)
 	if err != nil {
 		if ok := errors.Is(err, api.ErrNoAttestations{}); ok {
-			opts.Logger.Printf(opts.Logger.ColorScheme.Red("✗ No attestations found for subject %s\n"), artifact.DigestWithAlg())
+			logger.Printf(logger.ColorScheme.Red("✗ No attestations found for subject %s\n"), artifact.DigestWithAlg())
 			return err
 		}
 		// Print the message signifying failure fetching attestations
-		opts.Logger.Println(opts.Logger.ColorScheme.Red(logMsg))
+		logger.Println(logger.ColorScheme.Red(logMsg))
 		return err
 	}
 	// Print the message signifying success fetching attestations
-	opts.Logger.Println(logMsg)
+	logger.Println(logMsg)
 
 	// Apply predicate type filter to returned attestations
 	filteredAttestations := verification.FilterAttestations(ec.PredicateType, attestations)
 	if len(filteredAttestations) == 0 {
-		opts.Logger.Printf(opts.Logger.ColorScheme.Red("✗ No attestations found with predicate type: %s\n"), opts.PredicateType)
+		logger.Printf(logger.ColorScheme.Red("✗ No attestations found with predicate type: %s\n"), opts.PredicateType)
 		return err
 	}
 	attestations = filteredAttestations
 
-	opts.Logger.VerbosePrintf("Verifying attestations with predicate type: %s\n", ec.PredicateType)
+	logger.VerbosePrintf("Verifying attestations with predicate type: %s\n", ec.PredicateType)
 
 	verified, errMsg, err := verifyAttestations(*artifact, attestations, opts.SigstoreVerifier, ec)
 	if err != nil {
-		opts.Logger.Println(opts.Logger.ColorScheme.Red(errMsg))
+		logger.Println(logger.ColorScheme.Red(errMsg))
 		return err
 	}
 
-	opts.Logger.Println(opts.Logger.ColorScheme.Green("✓ Verification succeeded!\n"))
+	logger.Println(logger.ColorScheme.Green("✓ Verification succeeded!\n"))
 
 	// If an exporter is provided with the --json flag, write the results to the terminal in JSON format
 	if opts.exporter != nil {
 		// print the results to the terminal as an array of JSON objects
-		if err = opts.exporter.Write(opts.Logger.IO, verified); err != nil {
-			opts.Logger.Println(opts.Logger.ColorScheme.Red("✗ Failed to write JSON output"))
+		if err = opts.exporter.Write(logger.IO, verified); err != nil {
+			logger.Println(logger.ColorScheme.Red("✗ Failed to write JSON output"))
 			return err
 		}
 		return nil
 	}
 
-	opts.Logger.Printf("%s was attested by:\n", artifact.DigestWithAlg())
+	logger.Printf("%s was attested by:\n", artifact.DigestWithAlg())
 
 	// Otherwise print the results to the terminal in a table
 	tableContent, err := buildTableVerifyContent(opts.Tenant, verified)
 	if err != nil {
-		opts.Logger.Println(opts.Logger.ColorScheme.Red("failed to parse results"))
+		logger.Println(logger.ColorScheme.Red("failed to parse results"))
 		return err
 	}
 
 	headers := []string{"repo", "predicate_type", "workflow"}
-	if err = opts.Logger.PrintTable(headers, tableContent); err != nil {
-		opts.Logger.Println(opts.Logger.ColorScheme.Red("failed to print attestation details to table"))
+	if err = logger.PrintTable(headers, tableContent); err != nil {
+		logger.Println(logger.ColorScheme.Red("failed to print attestation details to table"))
 		return err
 	}
 

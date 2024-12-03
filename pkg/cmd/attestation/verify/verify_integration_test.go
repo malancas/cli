@@ -36,7 +36,6 @@ func TestVerifyIntegration(t *testing.T) {
 		ArtifactPath:     artifactPath,
 		BundlePath:       bundlePath,
 		DigestAlgorithm:  "sha512",
-		Logger:           logger,
 		OCIClient:        oci.NewLiveClient(),
 		OIDCIssuer:       verification.GitHubOIDCIssuer,
 		Owner:            "sigstore",
@@ -46,7 +45,7 @@ func TestVerifyIntegration(t *testing.T) {
 	}
 
 	t.Run("with valid owner", func(t *testing.T) {
-		err := runVerify(&publicGoodOpts)
+		err := runVerify(&publicGoodOpts, logger)
 		require.NoError(t, err)
 	})
 
@@ -54,7 +53,7 @@ func TestVerifyIntegration(t *testing.T) {
 		opts := publicGoodOpts
 		opts.Repo = "sigstore/sigstore-js"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -62,7 +61,7 @@ func TestVerifyIntegration(t *testing.T) {
 		opts := publicGoodOpts
 		opts.Repo = "sigstore/fakerepo"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "expected SourceRepositoryURI to be https://github.com/sigstore/fakerepo, got https://github.com/sigstore/sigstore-js")
 	})
@@ -71,7 +70,7 @@ func TestVerifyIntegration(t *testing.T) {
 		opts := publicGoodOpts
 		opts.Owner = "fakeowner"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "expected SourceRepositoryOwnerURI to be https://github.com/fakeowner, got https://github.com/sigstore")
 	})
@@ -80,7 +79,7 @@ func TestVerifyIntegration(t *testing.T) {
 		opts := publicGoodOpts
 		opts.Repo = "fakeowner/fakerepo"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "expected SourceRepositoryURI to be https://github.com/fakeowner/fakerepo, got https://github.com/sigstore/sigstore-js")
 	})
@@ -89,7 +88,7 @@ func TestVerifyIntegration(t *testing.T) {
 		opts := publicGoodOpts
 		opts.OIDCIssuer = "some-other-issuer"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "expected Issuer to be some-other-issuer, got https://token.actions.githubusercontent.com")
 	})
@@ -98,7 +97,7 @@ func TestVerifyIntegration(t *testing.T) {
 		opts := publicGoodOpts
 		opts.SAN = "fake san"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "verifying with issuer \"sigstore.dev\"")
 	})
@@ -107,7 +106,7 @@ func TestVerifyIntegration(t *testing.T) {
 		opts := publicGoodOpts
 		opts.SANRegex = "^https://github.com/sigstore/not-real/"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "verifying with issuer \"sigstore.dev\"")
 	})
@@ -137,7 +136,6 @@ func TestVerifyIntegrationCustomIssuer(t *testing.T) {
 		ArtifactPath:     artifactPath,
 		BundlePath:       bundlePath,
 		DigestAlgorithm:  "sha256",
-		Logger:           logger,
 		OCIClient:        oci.NewLiveClient(),
 		OIDCIssuer:       "https://token.actions.githubusercontent.com/hammer-time",
 		PredicateType:    verification.SLSAPredicateV1,
@@ -149,7 +147,7 @@ func TestVerifyIntegrationCustomIssuer(t *testing.T) {
 		opts.Owner = "too-legit"
 		opts.SAN = "https://github.com/too-legit/attest/.github/workflows/integration.yml@refs/heads/main"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -158,7 +156,7 @@ func TestVerifyIntegrationCustomIssuer(t *testing.T) {
 		opts.Owner = "too-legit"
 		opts.SANRegex = "^https://github.com/too-legit/attest"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -168,7 +166,7 @@ func TestVerifyIntegrationCustomIssuer(t *testing.T) {
 		opts.Repo = "too-legit/attest"
 		opts.SAN = "https://github.com/too-legit/attest/.github/workflows/integration.yml@refs/heads/main"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -178,7 +176,7 @@ func TestVerifyIntegrationCustomIssuer(t *testing.T) {
 		opts.Repo = "too-legit/attest"
 		opts.SANRegex = "^https://github.com/too-legit/attest"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 }
@@ -207,7 +205,6 @@ func TestVerifyIntegrationReusableWorkflow(t *testing.T) {
 		ArtifactPath:     artifactPath,
 		BundlePath:       bundlePath,
 		DigestAlgorithm:  "sha256",
-		Logger:           logger,
 		OCIClient:        oci.NewLiveClient(),
 		OIDCIssuer:       verification.GitHubOIDCIssuer,
 		PredicateType:    verification.SLSAPredicateV1,
@@ -219,7 +216,7 @@ func TestVerifyIntegrationReusableWorkflow(t *testing.T) {
 		opts.Owner = "malancas"
 		opts.SAN = "https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml@09b495c3f12c7881b3cc17209a327792065c1a1d"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -228,7 +225,7 @@ func TestVerifyIntegrationReusableWorkflow(t *testing.T) {
 		opts.Owner = "malancas"
 		opts.SANRegex = "^https://github.com/github/artifact-attestations-workflows/"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -237,7 +234,7 @@ func TestVerifyIntegrationReusableWorkflow(t *testing.T) {
 		opts.Owner = "malancas"
 		opts.SignerRepo = "github/artifact-attestations-workflows"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -247,7 +244,7 @@ func TestVerifyIntegrationReusableWorkflow(t *testing.T) {
 		opts.Repo = "malancas/attest-demo"
 		opts.SAN = "https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml@09b495c3f12c7881b3cc17209a327792065c1a1d"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -257,7 +254,7 @@ func TestVerifyIntegrationReusableWorkflow(t *testing.T) {
 		opts.Repo = "malancas/attest-demo"
 		opts.SANRegex = "^https://github.com/github/artifact-attestations-workflows/"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 
@@ -267,7 +264,7 @@ func TestVerifyIntegrationReusableWorkflow(t *testing.T) {
 		opts.Repo = "malancas/attest-demo"
 		opts.SignerRepo = "github/artifact-attestations-workflows"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.NoError(t, err)
 	})
 }
@@ -296,7 +293,6 @@ func TestVerifyIntegrationReusableWorkflowSignerWorkflow(t *testing.T) {
 		ArtifactPath:     artifactPath,
 		BundlePath:       bundlePath,
 		DigestAlgorithm:  "sha256",
-		Logger:           logger,
 		OCIClient:        oci.NewLiveClient(),
 		OIDCIssuer:       verification.GitHubOIDCIssuer,
 		Owner:            "malancas",
@@ -336,7 +332,7 @@ func TestVerifyIntegrationReusableWorkflowSignerWorkflow(t *testing.T) {
 		opts.SignerWorkflow = tc.signerWorkflow
 		opts.Hostname = tc.host
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		if tc.expectErr {
 			require.Error(t, err, "expected error for '%s'", tc.name)
 		} else {

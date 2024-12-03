@@ -315,7 +315,6 @@ func TestNewVerifyCmd(t *testing.T) {
 			assert.Equal(t, tc.wants.SANRegex, opts.SANRegex)
 			assert.Equal(t, tc.wants.TrustedRoot, opts.TrustedRoot)
 			assert.NotNil(t, opts.APIClient)
-			assert.NotNil(t, opts.Logger)
 			assert.NotNil(t, opts.OCIClient)
 			assert.Equal(t, tc.wantsExporter, opts.exporter != nil)
 		})
@@ -359,7 +358,6 @@ func TestJSONOutput(t *testing.T) {
 		BundlePath:       bundlePath,
 		DigestAlgorithm:  "sha512",
 		APIClient:        api.NewTestClient(),
-		Logger:           io.NewHandler(testIO),
 		OCIClient:        oci.MockClient{},
 		OIDCIssuer:       verification.GitHubOIDCIssuer,
 		Owner:            "sigstore",
@@ -368,7 +366,7 @@ func TestJSONOutput(t *testing.T) {
 		SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 		exporter:         cmdutil.NewJSONExporter(),
 	}
-	require.NoError(t, runVerify(&opts))
+	require.NoError(t, runVerify(&opts, io.NewHandler(testIO)))
 
 	var target []*verification.AttestationProcessingResult
 	err := json.Unmarshal(out.Bytes(), &target)
@@ -383,7 +381,6 @@ func TestRunVerify(t *testing.T) {
 		BundlePath:       bundlePath,
 		DigestAlgorithm:  "sha512",
 		APIClient:        api.NewTestClient(),
-		Logger:           logger,
 		OCIClient:        oci.MockClient{},
 		OIDCIssuer:       verification.GitHubOIDCIssuer,
 		Owner:            "sigstore",
@@ -393,7 +390,7 @@ func TestRunVerify(t *testing.T) {
 	}
 
 	t.Run("with valid artifact and bundle", func(t *testing.T) {
-		require.NoError(t, runVerify(&publicGoodOpts))
+		require.NoError(t, runVerify(&publicGoodOpts, logger))
 	})
 
 	t.Run("with failing OCI artifact fetch", func(t *testing.T) {
@@ -401,7 +398,7 @@ func TestRunVerify(t *testing.T) {
 		opts.ArtifactPath = "oci://ghcr.io/github/test"
 		opts.OCIClient = oci.ReferenceFailClient{}
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to parse reference")
 	})
@@ -409,13 +406,13 @@ func TestRunVerify(t *testing.T) {
 	t.Run("with missing artifact path", func(t *testing.T) {
 		opts := publicGoodOpts
 		opts.ArtifactPath = "../test/data/non-existent-artifact.zip"
-		require.Error(t, runVerify(&opts))
+		require.Error(t, runVerify(&opts, logger))
 	})
 
 	t.Run("with missing bundle path", func(t *testing.T) {
 		opts := publicGoodOpts
 		opts.BundlePath = "../test/data/non-existent-sigstoreBundle.json"
-		require.Error(t, runVerify(&opts))
+		require.Error(t, runVerify(&opts, logger))
 	})
 
 	t.Run("with owner", func(t *testing.T) {
@@ -423,7 +420,7 @@ func TestRunVerify(t *testing.T) {
 		opts.BundlePath = ""
 		opts.Owner = "sigstore"
 
-		require.Nil(t, runVerify(&opts))
+		require.Nil(t, runVerify(&opts, logger))
 	})
 
 	t.Run("with owner which not matches SourceRepositoryOwnerURI", func(t *testing.T) {
@@ -431,7 +428,7 @@ func TestRunVerify(t *testing.T) {
 		opts.BundlePath = ""
 		opts.Owner = "owner"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.ErrorContains(t, err, "expected SourceRepositoryOwnerURI to be https://github.com/owner, got https://github.com/sigstore")
 	})
 
@@ -440,7 +437,7 @@ func TestRunVerify(t *testing.T) {
 		opts.BundlePath = ""
 		opts.Repo = "sigstore/sigstore-js"
 
-		require.Nil(t, runVerify(&opts))
+		require.Nil(t, runVerify(&opts, logger))
 	})
 
 	// Test with bad tenancy
@@ -450,7 +447,7 @@ func TestRunVerify(t *testing.T) {
 		opts.Repo = "sigstore/sigstore-js"
 		opts.Tenant = "foo"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.ErrorContains(t, err, "expected SourceRepositoryOwnerURI to be https://foo.ghe.com/sigstore, got https://github.com/sigstore")
 	})
 
@@ -459,7 +456,7 @@ func TestRunVerify(t *testing.T) {
 		opts.BundlePath = ""
 		opts.Repo = "wrong/example"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.ErrorContains(t, err, "expected SourceRepositoryURI to be https://github.com/wrong/example, got https://github.com/sigstore/sigstore-js")
 	})
 
@@ -469,7 +466,7 @@ func TestRunVerify(t *testing.T) {
 		opts.Repo = "wrong/example"
 		opts.APIClient = api.NewFailTestClient()
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to fetch attestations from wrong/example")
 	})
@@ -480,7 +477,7 @@ func TestRunVerify(t *testing.T) {
 		opts.APIClient = api.NewFailTestClient()
 		opts.Owner = "wrong-owner"
 
-		err := runVerify(&opts)
+		err := runVerify(&opts, logger)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to fetch attestations from wrong-owner")
 	})
@@ -489,7 +486,7 @@ func TestRunVerify(t *testing.T) {
 		customOpts := publicGoodOpts
 		customOpts.APIClient = nil
 		customOpts.BundlePath = ""
-		require.Error(t, runVerify(&customOpts))
+		require.Error(t, runVerify(&customOpts, logger))
 	})
 
 	t.Run("with valid OCI artifact", func(t *testing.T) {
@@ -497,7 +494,7 @@ func TestRunVerify(t *testing.T) {
 		customOpts.ArtifactPath = "oci://ghcr.io/github/test"
 		customOpts.BundlePath = ""
 
-		require.Nil(t, runVerify(&customOpts))
+		require.Nil(t, runVerify(&customOpts, logger))
 	})
 
 	t.Run("with valid OCI artifact with UseBundleFromRegistry flag", func(t *testing.T) {
@@ -506,7 +503,7 @@ func TestRunVerify(t *testing.T) {
 		customOpts.BundlePath = ""
 		customOpts.UseBundleFromRegistry = true
 
-		require.Nil(t, runVerify(&customOpts))
+		require.Nil(t, runVerify(&customOpts, logger))
 	})
 
 	t.Run("with valid OCI artifact with UseBundleFromRegistry flag but no bundle return from registry", func(t *testing.T) {
@@ -516,7 +513,7 @@ func TestRunVerify(t *testing.T) {
 		customOpts.UseBundleFromRegistry = true
 		customOpts.OCIClient = oci.NoAttestationsClient{}
 
-		require.ErrorContains(t, runVerify(&customOpts), "no attestations found in the OCI registry. Retry the command without the --bundle-from-oci flag to check GitHub for the attestation")
+		require.ErrorContains(t, runVerify(&customOpts, logger), "no attestations found in the OCI registry. Retry the command without the --bundle-from-oci flag to check GitHub for the attestation")
 	})
 
 	t.Run("with valid OCI artifact with UseBundleFromRegistry flag but fail on fetching bundle from registry", func(t *testing.T) {
@@ -526,6 +523,6 @@ func TestRunVerify(t *testing.T) {
 		customOpts.UseBundleFromRegistry = true
 		customOpts.OCIClient = oci.NoAttestationsClient{}
 
-		require.ErrorContains(t, runVerify(&customOpts), "no attestations found in the OCI registry. Retry the command without the --bundle-from-oci flag to check GitHub for the attestation")
+		require.ErrorContains(t, runVerify(&customOpts, logger), "no attestations found in the OCI registry. Retry the command without the --bundle-from-oci flag to check GitHub for the attestation")
 	})
 }
