@@ -6,10 +6,11 @@ import (
 	"github.com/cli/cli/v2/internal/text"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/api"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/artifact"
+	"github.com/cli/cli/v2/pkg/cmd/attestation/artifact/oci"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/verification"
 )
 
-func getAttestations(o *Options, a artifact.DigestedArtifact) ([]*api.Attestation, string, error) {
+func getAttestations(o *Options, a artifact.DigestedArtifact, ociClient oci.Client, apiClient api.Client) ([]*api.Attestation, string, error) {
 	if o.BundlePath != "" {
 		attestations, err := verification.GetLocalAttestations(o.BundlePath)
 		if err != nil {
@@ -22,7 +23,7 @@ func getAttestations(o *Options, a artifact.DigestedArtifact) ([]*api.Attestatio
 	}
 
 	if o.UseBundleFromRegistry {
-		attestations, err := verification.GetOCIAttestations(o.OCIClient, a)
+		attestations, err := verification.GetOCIAttestations(ociClient, a)
 		if err != nil {
 			msg := "✗ Loading attestations from OCI registry failed"
 			return nil, msg, err
@@ -39,7 +40,7 @@ func getAttestations(o *Options, a artifact.DigestedArtifact) ([]*api.Attestatio
 		Repo:   o.Repo,
 	}
 
-	attestations, err := verification.GetRemoteAttestations(o.APIClient, params)
+	attestations, err := verification.GetRemoteAttestations(apiClient, params)
 	if err != nil {
 		msg := "✗ Loading attestations from GitHub API failed"
 		return nil, msg, err

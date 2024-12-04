@@ -8,7 +8,6 @@ import (
 	"github.com/cli/cli/v2/internal/ghinstance"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/api"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/artifact"
-	"github.com/cli/cli/v2/pkg/cmd/attestation/artifact/oci"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/auth"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/io"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/verification"
@@ -118,27 +117,18 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 			// Create a logger for use throughout the verify command
 			logger := io.NewHandler(f.IOStreams)
 
-			hc, err := f.HttpClient()
-			if err != nil {
+			if err := auth.IsHostSupported(opts.Hostname); err != nil {
 				return err
 			}
 
-			err = auth.IsHostSupported(opts.Hostname)
+			cfg, err := newConfig(f, opts.Hostname, opts.TrustedRoot, opts.NoPublicGood, logger)
 			if err != nil {
-				return err
-			}
-
-			apiClient := api.NewLiveClient(hc, opts.Hostname, logger)
-
-			sigstoreConfig := verification.SigstoreConfig{
-				TrustedRoot:  opts.TrustedRoot,
-				Logger:       logger,
-				NoPublicGood: opts.NoPublicGood,
+				return fmt.Errorf("failed to configure verify command")
 			}
 
 			// Prepare for tenancy if detected
 			if ghauth.IsTenancy(opts.Hostname) {
-				td, err := apiClient.GetTrustDomain()
+				td, err := cfg.APIClient.GetTrustDomain()
 				if err != nil {
 					return fmt.Errorf("error getting trust domain, make sure you are authenticated against the host: %w", err)
 				}
@@ -148,23 +138,16 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 					return fmt.Errorf("invalid hostname provided: '%s'",
 						opts.Hostname)
 				}
-				sigstoreConfig.TrustDomain = td
+				cfg.SigstoreVerifier.TrustDomain = td
 				opts.Tenant = tenant
 			}
 
 			// set policy flags based on what has been provided
+			// this must be done after the Options#Tenant field has been optionally set
 			opts.SetPolicyFlags()
 
 			if runF != nil {
 				return runF(opts)
-			}
-
-			sigstoreVerifier := verification.NewLiveSigstoreVerifier(sigstoreConfig)
-
-			cfg := &Config{
-				APIClient:        apiClient,
-				OCIClient:        oci.NewLiveClient(),
-				SigstoreVerifier: sigstoreVerifier,
 			}
 
 			if err := runVerify(opts, logger, cfg); err != nil {
@@ -222,7 +205,7 @@ func runVerify(opts *Options, logger *io.Handler, cfg *Config) error {
 
 	logger.Printf("Loaded digest %s for %s\n", artifact.DigestWithAlg(), artifact.URL)
 
-	attestations, logMsg, err := getAttestations(opts, *artifact)
+	attestations, logMsg, err := getAttestations(opts, *artifact, cfg.OCIClient, cfg.APIClient)
 	if err != nil {
 		if ok := errors.Is(err, api.ErrNoAttestations{}); ok {
 			logger.Printf(logger.ColorScheme.Red("✗ No attestations found for subject %s\n"), artifact.DigestWithAlg())

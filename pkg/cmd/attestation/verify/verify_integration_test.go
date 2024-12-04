@@ -18,34 +18,37 @@ import (
 func TestVerifyIntegration(t *testing.T) {
 	logger := io.NewTestHandler()
 
-	sigstoreConfig := verification.SigstoreConfig{
+	sigstoreVerifier := verification.NewLiveSigstoreVerifier(verification.SigstoreConfig{
 		Logger: logger,
-	}
+	})
+
+	ociClient := oci.NewLiveClient()
 
 	cmdFactory := factory.New("test")
 
 	hc, err := cmdFactory.HttpClient()
-	if err != nil {
-		t.Fatal(err)
+	require.NoError(t, err)
+	host, _ := auth.DefaultHost()
+	apiClient := api.NewLiveClient(hc, host, logger)
+
+	cfg := &Config{
+		APIClient:        apiClient,
+		OCIClient:        ociClient,
+		SigstoreVerifier: sigstoreVerifier,
 	}
 
-	host, _ := auth.DefaultHost()
-
 	publicGoodOpts := Options{
-		APIClient:        api.NewLiveClient(hc, host, logger),
-		ArtifactPath:     artifactPath,
-		BundlePath:       bundlePath,
-		DigestAlgorithm:  "sha512",
-		OCIClient:        oci.NewLiveClient(),
-		OIDCIssuer:       verification.GitHubOIDCIssuer,
-		Owner:            "sigstore",
-		PredicateType:    verification.SLSAPredicateV1,
-		SANRegex:         "^https://github.com/sigstore/",
-		SigstoreVerifier: verification.NewLiveSigstoreVerifier(sigstoreConfig),
+		ArtifactPath:    artifactPath,
+		BundlePath:      bundlePath,
+		DigestAlgorithm: "sha512",
+		OIDCIssuer:      verification.GitHubOIDCIssuer,
+		Owner:           "sigstore",
+		PredicateType:   verification.SLSAPredicateV1,
+		SANRegex:        "^https://github.com/sigstore/",
 	}
 
 	t.Run("with valid owner", func(t *testing.T) {
-		err := runVerify(&publicGoodOpts, logger)
+		err := runVerify(&publicGoodOpts, logger, cfg)
 		require.NoError(t, err)
 	})
 
