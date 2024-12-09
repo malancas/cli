@@ -41,26 +41,9 @@ stdout2env RUN_ID
 # Wait for workflow to complete
 exec gh run watch ${RUN_ID} --exit-status
 
-# Download the artifact to current dir
-exec gh run download ${RUN_ID}
-
-# Check that we downloaded the artifact and extracted into a dir with the name of the artifact
-exists ./my-artifact/child/world.txt
-
-# Remove the artifact
-rm ./my-artifact
-
-# Download the artifact via name to current dir
-exec gh run download -n 'my-artifact' ${RUN_ID}
-
-# Check that we downloaded the artifact and extracted into the current dir
-exists ./child/world.txt
-
-# Download the artifact via name to a specific dir
-exec gh run download -n 'my-artifact' ${RUN_ID} --dir '..'
-
-# Check that we downloaded the artifact and extracted into the specified dir
-exists ../child/world.txt
+# Download the artifact and see there is an error
+! exec gh run download ${RUN_ID}
+stderr 'would result in path traversal'
 
 -- workflow.yml --
 # This is a basic workflow to help you get started with Actions
@@ -81,10 +64,8 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - run: |
-         mkdir -p ./parent/child
-         echo hello > ./parent/child/world.txt
+      - run: echo hello > world.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: my-artifact
-          path: ./parent
+          name: ..
+          path: world.txt

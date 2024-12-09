@@ -118,7 +118,7 @@ func GetRemoteAttestations(client api.Client, params FetchRemoteAttestationsPara
 }
 
 func GetOCIAttestations(client oci.Client, artifact artifact.DigestedArtifact) ([]*api.Attestation, error) {
-	attestations, err := client.GetAttestations(artifact.NameRef(), artifact.Digest())
+	attestations, err := client.GetAttestations(artifact.NameRef(), artifact.DigestWithAlg())
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCI attestations: %w", err)
 	}

@@ -59,10 +59,18 @@ func NewCmdBrowse(f *cmdutil.Factory, runF func(*BrowseOptions) error) *cobra.Co
 	}
 
 	cmd := &cobra.Command{
-		Long:  "Open the GitHub repository in the web browser.",
-		Short: "Open the repository in the browser",
-		Use:   "browse [<number> | <path> | <commit-SHA>]",
-		Args:  cobra.MaximumNArgs(1),
+		Short: "Open repositories, issues, pull requests, and more in the browser",
+		Long: heredoc.Doc(`
+			Transition from the terminal to the web browser to view and interact with:
+
+			- Issues
+			- Pull requests
+			- Repository content
+			- Repository home page
+			- Repository settings
+		`),
+		Use:  "browse [<number> | <path> | <commit-SHA>]",
+		Args: cobra.MaximumNArgs(1),
 		Example: heredoc.Doc(`
 			$ gh browse
 			#=> Open the home page of the current repository
