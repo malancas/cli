@@ -241,7 +241,14 @@ func (m *mergeContext) warnIfDiverged() {
 // Check if the current state of the pull request allows for merging
 func (m *mergeContext) canMerge() error {
 	if m.mergeQueueRequired {
-		// a pull request can always be added to the merge queue
+		// Requesting branch deletion on a PR with a merge queue
+		// policy is not allowed. Doing so can unexpectedly
+		// delete branches before merging, close the PR, and remove
+		// the PR from the merge queue.
+		if m.opts.DeleteBranch {
+			return fmt.Errorf("%s Cannot use `-d` or `--delete-branch` when merge queue enabled", m.cs.FailureIcon())
+		}
+		// Otherwise, a pull request can always be added to the merge queue
 		return nil
 	}
 

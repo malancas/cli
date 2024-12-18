@@ -347,7 +347,7 @@ func TestFind(t *testing.T) {
 			wantRepo: "https://github.com/OWNER/REPO",
 		},
 		{
-			name: "current branch with upstream configuration",
+			name: "current branch with upstream RemoteURL configuration",
 			args: args{
 				selector: "",
 				fields:   []string{"id", "number"},
@@ -377,6 +377,47 @@ func TestFind(t *testing.T) {
 								"headRefName": "blue-upstream-berries",
 								"isCrossRepository": true,
 								"headRepositoryOwner": {"login":"UPSTREAMOWNER"}
+							}
+						]}
+					}}}`))
+			},
+			wantPR:   13,
+			wantRepo: "https://github.com/OWNER/REPO",
+		},
+		{
+			name: "current branch with upstream and fork in same org",
+			args: args{
+				selector: "",
+				fields:   []string{"id", "number"},
+				baseRepoFn: func() (ghrepo.Interface, error) {
+					return ghrepo.FromFullName("OWNER/REPO")
+				},
+				branchFn: func() (string, error) {
+					return "blueberries", nil
+				},
+				branchConfig: func(branch string) (c git.BranchConfig) {
+					c.RemoteName = "origin"
+					return
+				},
+				remotesFn: func() (context.Remotes, error) {
+					return context.Remotes{{
+						Remote: &git.Remote{Name: "origin"},
+						Repo:   ghrepo.New("OWNER", "REPO-FORK"),
+					}}, nil
+				},
+			},
+			httpStub: func(r *httpmock.Registry) {
+				r.Register(
+					httpmock.GraphQL(`query PullRequestForBranch\b`),
+					httpmock.StringResponse(`{"data":{"repository":{
+						"pullRequests":{"nodes":[
+							{
+								"number": 13,
+								"state": "OPEN",
+								"baseRefName": "main",
+								"headRefName": "blueberries",
+								"isCrossRepository": true,
+								"headRepositoryOwner": {"login":"OWNER"}
 							}
 						]}
 					}}}`))

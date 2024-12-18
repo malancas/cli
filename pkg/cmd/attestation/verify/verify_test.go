@@ -91,7 +91,6 @@ func TestNewVerifyCmd(t *testing.T) {
 				OIDCIssuer:       verification.GitHubOIDCIssuer,
 				Owner:            "sigstore",
 				PredicateType:    verification.SLSAPredicateV1,
-				SANRegex:         "(?i)^https://github.com/sigstore/",
 				SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 			},
 			wantsErr: false,
@@ -108,7 +107,6 @@ func TestNewVerifyCmd(t *testing.T) {
 				OIDCIssuer:       verification.GitHubOIDCIssuer,
 				Owner:            "sigstore",
 				PredicateType:    verification.SLSAPredicateV1,
-				SANRegex:         "(?i)^https://foo.ghe.com/sigstore/",
 				SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 			},
 			wantsErr: false,
@@ -125,7 +123,6 @@ func TestNewVerifyCmd(t *testing.T) {
 				OIDCIssuer:       verification.GitHubOIDCIssuer,
 				Owner:            "sigstore",
 				PredicateType:    verification.SLSAPredicateV1,
-				SANRegex:         "(?i)^https://github.com/sigstore/",
 				SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 			},
 			wantsErr: true,
@@ -142,7 +139,6 @@ func TestNewVerifyCmd(t *testing.T) {
 				OIDCIssuer:       verification.GitHubOIDCIssuer,
 				Owner:            "sigstore",
 				PredicateType:    verification.SLSAPredicateV1,
-				SANRegex:         "(?i)^https://github.com/sigstore/",
 				SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 			},
 			wantsErr: false,
@@ -190,7 +186,6 @@ func TestNewVerifyCmd(t *testing.T) {
 				OIDCIssuer:       verification.GitHubOIDCIssuer,
 				Owner:            "sigstore",
 				PredicateType:    verification.SLSAPredicateV1,
-				SANRegex:         "(?i)^https://github.com/sigstore/",
 				SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 			},
 			wantsErr: false,
@@ -206,7 +201,6 @@ func TestNewVerifyCmd(t *testing.T) {
 				OIDCIssuer:       verification.GitHubOIDCIssuer,
 				Owner:            "sigstore",
 				PredicateType:    verification.SLSAPredicateV1,
-				SANRegex:         "(?i)^https://github.com/sigstore/",
 				SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 			},
 			wantsErr: false,
@@ -256,7 +250,6 @@ func TestNewVerifyCmd(t *testing.T) {
 				OIDCIssuer:       verification.GitHubOIDCIssuer,
 				Owner:            "sigstore",
 				PredicateType:    verification.SLSAPredicateV1,
-				SANRegex:         "(?i)^https://github.com/sigstore/",
 				SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 			},
 			wantsExporter: true,
@@ -273,7 +266,6 @@ func TestNewVerifyCmd(t *testing.T) {
 				OIDCIssuer:       verification.GitHubOIDCIssuer,
 				Owner:            "sigstore",
 				PredicateType:    "https://spdx.dev/Document/v2.3",
-				SANRegex:         "(?i)^https://github.com/sigstore/",
 				SigstoreVerifier: verification.NewMockSigstoreVerifier(t),
 			},
 			wantsExporter: true,
@@ -454,7 +446,7 @@ func TestRunVerify(t *testing.T) {
 	t.Run("with repo which not matches SourceRepositoryURI", func(t *testing.T) {
 		opts := publicGoodOpts
 		opts.BundlePath = ""
-		opts.Repo = "wrong/example"
+		opts.Repo = "sigstore/wrong"
 
 		err := runVerify(&opts, logger)
 		require.ErrorContains(t, err, "expected SourceRepositoryURI to be https://github.com/wrong/example, got https://github.com/sigstore/sigstore-js")

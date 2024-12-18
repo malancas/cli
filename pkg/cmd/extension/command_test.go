@@ -287,6 +287,44 @@ func TestNewCmdExtension(t *testing.T) {
 			},
 		},
 		{
+			name: "installing local extension without executable with TTY shows warning",
+			args: []string{"install", "."},
+			managerStubs: func(em *extensions.ExtensionManagerMock) func(*testing.T) {
+				em.InstallLocalFunc = func(dir string) error {
+					return &ErrExtensionExecutableNotFound{
+						Dir:  tempDir,
+						Name: "gh-test",
+					}
+				}
+				em.ListFunc = func() []extensions.Extension {
+					return []extensions.Extension{}
+				}
+				return nil
+			},
+			wantStderr: fmt.Sprintf("! an extension has been installed but there is no executable: executable file named \"%s\" in %s is required to run the extension after install. Perhaps you need to build it?\n", "gh-test", tempDir),
+			wantErr:    false,
+			isTTY:      true,
+		},
+		{
+			name: "install local extension without executable with no TTY shows no warning",
+			args: []string{"install", "."},
+			managerStubs: func(em *extensions.ExtensionManagerMock) func(*testing.T) {
+				em.InstallLocalFunc = func(dir string) error {
+					return &ErrExtensionExecutableNotFound{
+						Dir:  tempDir,
+						Name: "gh-test",
+					}
+				}
+				em.ListFunc = func() []extensions.Extension {
+					return []extensions.Extension{}
+				}
+				return nil
+			},
+			wantStderr: "",
+			wantErr:    false,
+			isTTY:      false,
+		},
+		{
 			name: "error extension not found",
 			args: []string{"install", "owner/gh-some-ext"},
 			managerStubs: func(em *extensions.ExtensionManagerMock) func(*testing.T) {

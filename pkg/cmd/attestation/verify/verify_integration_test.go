@@ -113,6 +113,25 @@ func TestVerifyIntegration(t *testing.T) {
 		require.Error(t, err)
 		require.ErrorContains(t, err, "verifying with issuer \"sigstore.dev\"")
 	})
+
+	t.Run("with bundle from OCI registry", func(t *testing.T) {
+		opts := Options{
+			APIClient:             api.NewLiveClient(hc, host, logger),
+			ArtifactPath:          "oci://ghcr.io/github/artifact-attestations-helm-charts/policy-controller:v0.10.0-github9",
+			UseBundleFromRegistry: true,
+			DigestAlgorithm:       "sha256",
+			Logger:                logger,
+			OCIClient:             oci.NewLiveClient(),
+			OIDCIssuer:            verification.GitHubOIDCIssuer,
+			Owner:                 "github",
+			PredicateType:         verification.SLSAPredicateV1,
+			SANRegex:              "^https://github.com/github/",
+			SigstoreVerifier:      verification.NewLiveSigstoreVerifier(sigstoreConfig),
+		}
+
+		err := runVerify(&opts)
+		require.NoError(t, err)
+	})
 }
 
 func TestVerifyIntegrationCustomIssuer(t *testing.T) {

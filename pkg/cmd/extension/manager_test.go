@@ -719,6 +719,63 @@ func TestManager_UpgradeExtension_GitExtension_Pinned(t *testing.T) {
 	gcOne.AssertExpectations(t)
 }
 
+func TestManager_Install_local(t *testing.T) {
+	extManagerDir := t.TempDir()
+	ios, _, stdout, stderr := iostreams.Test()
+	m := newTestManager(extManagerDir, nil, nil, ios)
+	fakeExtensionName := "local-ext"
+
+	// Create a temporary directory to simulate the local extension repo
+	extensionLocalPath := filepath.Join(extManagerDir, fakeExtensionName)
+	require.NoError(t, os.MkdirAll(extensionLocalPath, 0755))
+
+	// Create a fake executable in the local extension directory
+	fakeExtensionExecutablePath := filepath.Join(extensionLocalPath, fakeExtensionName)
+	require.NoError(t, stubExtension(fakeExtensionExecutablePath))
+
+	err := m.InstallLocal(extensionLocalPath)
+	require.NoError(t, err)
+
+	// This is the path to a file:
+	// on windows this is a file whose contents is a string describing the path to the local extension dir.
+	// on other platforms this file is a real symlink to the local extension dir.
+	extensionLinkFile := filepath.Join(extManagerDir, "extensions", fakeExtensionName)
+
+	if runtime.GOOS == "windows" {
+		// We don't create true symlinks on Windows, so check if we made a
+		// file with the correct contents to produce the symlink-like behavior
+		b, err := os.ReadFile(extensionLinkFile)
+		require.NoError(t, err)
+		assert.Equal(t, extensionLocalPath, string(b))
+	} else {
+		// Verify the created symlink points to the correct directory
+		linkTarget, err := os.Readlink(extensionLinkFile)
+		require.NoError(t, err)
+		assert.Equal(t, extensionLocalPath, linkTarget)
+	}
+	assert.Equal(t, "", stdout.String())
+	assert.Equal(t, "", stderr.String())
+}
+
+func TestManager_Install_local_no_executable_found(t *testing.T) {
+	tempDir := t.TempDir()
+	ios, _, stdout, stderr := iostreams.Test()
+	m := newTestManager(tempDir, nil, nil, ios)
+	fakeExtensionName := "local-ext"
+
+	// Create a temporary directory to simulate the local extension repo
+	localDir := filepath.Join(tempDir, fakeExtensionName)
+	require.NoError(t, os.MkdirAll(localDir, 0755))
+
+	// Intentionally not creating an executable in the local extension repo
+	// to simulate an attempt to install a local extension without an executable
+
+	err := m.InstallLocal(localDir)
+	require.ErrorAs(t, err, new(*ErrExtensionExecutableNotFound))
+	assert.Equal(t, "", stdout.String())
+	assert.Equal(t, "", stderr.String())
+}
+
 func TestManager_Install_git(t *testing.T) {
 	tempDir := t.TempDir()
 

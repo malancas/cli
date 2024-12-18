@@ -508,7 +508,7 @@ func SelectRun(p Prompter, cs *iostreams.ColorScheme, runs []Run) (string, error
 		symbol, _ := Symbol(cs, run.Status, run.Conclusion)
 		candidates = append(candidates,
 			// TODO truncate commit message, long ones look terrible
-			fmt.Sprintf("%s %s, %s (%s) %s", symbol, run.Title(), run.WorkflowName(), run.HeadBranch, preciseAgo(now, run.StartedTime())))
+			fmt.Sprintf("%s %s, %s [%s] %s", symbol, run.Title(), run.WorkflowName(), run.HeadBranch, preciseAgo(now, run.StartedTime())))
 	}
 
 	selected, err := p.Select("Select a workflow run", "", candidates)

@@ -41,12 +41,12 @@ var HelpTopics = []helpTopic{
 	{
 		name:  "environment",
 		short: "Environment variables that can be used with gh",
-		long: heredoc.Docf(`	
+		long: heredoc.Docf(`
 			%[1]sGH_TOKEN%[1]s, %[1]sGITHUB_TOKEN%[1]s (in order of precedence): an authentication token that will be used when
 			a command targets either github.com or a subdomain of ghe.com. Setting this avoids being prompted to
 			authenticate and takes precedence over previously stored credentials.
 
-			%[1]sGH_ENTERPRISE_TOKEN%[1]s, %[1]sGITHUB_ENTERPRISE_TOKEN%[1]s (in order of precedence): an authentication 
+			%[1]sGH_ENTERPRISE_TOKEN%[1]s, %[1]sGITHUB_ENTERPRISE_TOKEN%[1]s (in order of precedence): an authentication
 			token that will be used when a command targets a GitHub Enterprise Server host.
 
 			%[1]sGH_HOST%[1]s: specify the GitHub hostname for commands where a hostname has not been provided, or
@@ -90,7 +90,7 @@ var HelpTopics = []helpTopic{
 			checks for new releases once every 24 hours and displays an upgrade notice on standard
 			error if a newer version was found.
 
-			%[1]sGH_CONFIG_DIR%[1]s: the directory where gh will store configuration files. If not specified, 
+			%[1]sGH_CONFIG_DIR%[1]s: the directory where gh will store configuration files. If not specified,
 			the default value will be one of the following paths (in order of precedence):
 			  - %[1]s$XDG_CONFIG_HOME/gh%[1]s (if %[1]s$XDG_CONFIG_HOME%[1]s is set),
 			  - %[1]s$AppData/GitHub CLI%[1]s (on Windows if %[1]s$AppData%[1]s is set), or
