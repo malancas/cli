@@ -48,10 +48,11 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		sigstoreVerifier := verification.NewLiveSigstoreVerifier(verification.SigstoreConfig{
+		verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 			Logger: io.NewTestHandler(),
 		})
-		results, err := sigstoreVerifier.Verify(tc.attestations, publicGoodPolicy(t))
+
+		results, err := verifier.Verify(tc.attestations, publicGoodPolicy(t))
 
 		if tc.expectErr {
 			require.Error(t, err, "test case: %s", tc.name)
@@ -64,7 +65,7 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 	}
 
 	t.Run("with 2/3 verified attestations", func(t *testing.T) {
-		sgVerifier := verification.NewLiveSigstoreVerifier(verification.SigstoreConfig{
+		verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 			Logger: io.NewTestHandler(),
 		})
 
@@ -73,14 +74,14 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 		attestations = append(attestations, invalidBundle[0])
 		require.Len(t, attestations, 3)
 
-		results, err := sgVerifier.Verify(attestations, publicGoodPolicy(t))
+		results, err := verifier.Verify(attestations, publicGoodPolicy(t))
 
 		require.Len(t, results, 2)
 		require.NoError(t, err)
 	})
 
 	t.Run("fail with 0/2 verified attestations", func(t *testing.T) {
-		sigstoreVerifier := verification.NewLiveSigstoreVerifier(verification.SigstoreConfig{
+		verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 			Logger: io.NewTestHandler(),
 		})
 
@@ -89,7 +90,7 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 		attestations = append(attestations, invalidBundle[0])
 		require.Len(t, attestations, 2)
 
-		results, err := sigstoreVerifier.Verify(attestations, publicGoodPolicy(t))
+		results, err := verifier.Verify(attestations, publicGoodPolicy(t))
 		require.Nil(t, results)
 		require.Error(t, err)
 	})
@@ -103,23 +104,24 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 
 		attestations := getAttestationsFor(t, "../test/data/github_provenance_demo-0.0.12-py3-none-any-bundle.jsonl")
 
-		sigstoreVerifier := verification.NewLiveSigstoreVerifier(verification.SigstoreConfig{
+		verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 			Logger: io.NewTestHandler(),
 		})
 
-		results, err := sigstoreVerifier.Verify(attestations, githubPolicy)
+		results, err := verifier.Verify(attestations, githubPolicy)
 		require.Len(t, results, 1)
 		require.NoError(t, err)
 	})
 
 	t.Run("with custom trusted root", func(t *testing.T) {
 		attestations := getAttestationsFor(t, "../test/data/sigstore-js-2.1.0_with_2_bundles.jsonl")
-		sigstoreVerifier := verification.NewLiveSigstoreVerifier(verification.SigstoreConfig{
+
+		verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 			Logger:      io.NewTestHandler(),
 			TrustedRoot: test.NormalizeRelativePath("../test/data/trusted_root.json"),
 		})
 
-		results, err := sigstoreVerifier.Verify(attestations, publicGoodPolicy(t))
+		results, err := verifier.Verify(attestations, publicGoodPolicy(t))
 		require.Len(t, results, 2)
 		require.NoError(t, err)
 	})
