@@ -262,13 +262,8 @@ func TestValidateSignerWorkflow(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		opts := &Options{
-			SignerWorkflow: tc.providedSignerWorkflow,
-		}
-
 		// All host resolution is done verify.go:RunE
-		opts.Hostname = tc.host
-		workflowRegex, err := validateSignerWorkflow(opts)
+		workflowRegex, err := validateSignerWorkflow(tc.providedSignerWorkflow, tc.host)
 		require.Equal(t, tc.expectedWorkflowRegex, workflowRegex)
 
 		if tc.expectErr {

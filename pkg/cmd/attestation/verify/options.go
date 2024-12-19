@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cli/cli/v2/internal/ghinstance"
+	"github.com/cli/cli/v2/pkg/cmd/attestation/auth"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 )
 
@@ -72,6 +73,10 @@ func (opts *Options) AreFlagsValid() error {
 	if opts.Hostname != "" {
 		if err := ghinstance.HostnameValidator(opts.Hostname); err != nil {
 			return fmt.Errorf("error parsing hostname: %w", err)
+		}
+
+		if err := auth.IsHostSupported(opts.Hostname); err != nil {
+			return err
 		}
 	}
 

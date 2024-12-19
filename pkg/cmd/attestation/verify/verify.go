@@ -8,7 +8,7 @@ import (
 	"github.com/cli/cli/v2/internal/ghinstance"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/api"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/artifact"
-	"github.com/cli/cli/v2/pkg/cmd/attestation/auth"
+	"github.com/cli/cli/v2/pkg/cmd/attestation/artifact/oci"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/io"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/verification"
 	"github.com/cli/cli/v2/pkg/cmdutil"
@@ -117,36 +117,33 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 			// Create a logger for use throughout the verify command
 			logger := io.NewHandler(f.IOStreams)
 
-			if err := auth.IsHostSupported(opts.Hostname); err != nil {
+			apiClient, err := newAPIClient(f, opts.Hostname, logger)
+			if err != nil {
 				return err
 			}
 
-			cfg, err := newConfig(f, opts.Hostname, opts.TrustedRoot, opts.NoPublicGood, logger)
-			if err != nil {
-				return fmt.Errorf("failed to configure verify command")
+			sigstoreVerifier := &verification.LiveSigstoreVerifier{
+				Logger:       logger,
+				TrustedRoot:  opts.TrustedRoot,
+				NoPublicGood: opts.NoPublicGood,
 			}
 
 			// Prepare for tenancy if detected
 			if ghauth.IsTenancy(opts.Hostname) {
-				td, err := cfg.APIClient.GetTrustDomain()
+				trustDomain, tenant, err := configureTenancy(apiClient, opts.Hostname)
 				if err != nil {
 					return fmt.Errorf("error getting trust domain, make sure you are authenticated against the host: %w", err)
 				}
-
-				tenant, found := ghinstance.TenantName(opts.Hostname)
-				if !found {
-					return fmt.Errorf("invalid hostname provided: '%s'",
-						opts.Hostname)
-				}
-				cfg.SigstoreVerifier.TrustDomain = td
+				sigstoreVerifier.TrustDomain = trustDomain
 				opts.Tenant = tenant
 			}
 
+			// runF is only used for testing
 			if runF != nil {
 				return runF(opts)
 			}
 
-			if err := runVerify(opts, logger, cfg); err != nil {
+			if err := runVerify(opts, logger, apiClient, oci.NewLiveClient(), sigstoreVerifier); err != nil {
 				return fmt.Errorf("\nError: %v", err)
 			}
 			return nil
@@ -175,13 +172,14 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 	verifyCmd.Flags().StringVarP(&opts.SignerWorkflow, "signer-workflow", "", "", "Workflow that signed attestation in the format [host/]<owner>/<repo>/<path>/<to>/<workflow>")
 	verifyCmd.MarkFlagsMutuallyExclusive("cert-identity", "cert-identity-regex", "signer-repo", "signer-workflow")
 	verifyCmd.Flags().StringVarP(&opts.OIDCIssuer, "cert-oidc-issuer", "", verification.GitHubOIDCIssuer, "Issuer of the OIDC token")
+	// Set the default gh hostname as the option's default value
 	hostname, _ := ghauth.DefaultHost()
 	verifyCmd.Flags().StringVarP(&opts.Hostname, "hostname", "", hostname, "Configure host to use")
 
 	return verifyCmd
 }
 
-func runVerify(opts *Options, logger *io.Handler, cfg *Config) error {
+func runVerify(opts *Options, logger *io.Handler, apiClient api.Client, ociClient oci.Client, sgVerifier verification.SigstoreVerifier) error {
 	ec, err := newEnforcementCriteria(opts)
 	if err != nil {
 		logger.Println(logger.ColorScheme.Red("✗ Failed to build verification policy"))
@@ -193,7 +191,7 @@ func runVerify(opts *Options, logger *io.Handler, cfg *Config) error {
 		return err
 	}
 
-	artifact, err := artifact.NewDigestedArtifact(cfg.OCIClient, opts.ArtifactPath, opts.DigestAlgorithm)
+	artifact, err := artifact.NewDigestedArtifact(ociClient, opts.ArtifactPath, opts.DigestAlgorithm)
 	if err != nil {
 		logger.Printf(logger.ColorScheme.Red("✗ Loading digest for %s failed\n"), opts.ArtifactPath)
 		return err
@@ -201,7 +199,7 @@ func runVerify(opts *Options, logger *io.Handler, cfg *Config) error {
 
 	logger.Printf("Loaded digest %s for %s\n", artifact.DigestWithAlg(), artifact.URL)
 
-	attestations, logMsg, err := getAttestations(opts, *artifact, cfg.OCIClient, cfg.APIClient)
+	attestations, logMsg, err := getAttestations(opts, *artifact, ociClient, apiClient)
 	if err != nil {
 		if ok := errors.Is(err, api.ErrNoAttestations{}); ok {
 			logger.Printf(logger.ColorScheme.Red("✗ No attestations found for subject %s\n"), artifact.DigestWithAlg())
@@ -223,10 +221,10 @@ func runVerify(opts *Options, logger *io.Handler, cfg *Config) error {
 	attestations = filteredAttestations
 
 	// print information about the policy that will be enforced against attestations
-	opts.Logger.Println("\nThe following policy criteria will be enforced:")
-	opts.Logger.Println(ec.BuildPolicyInformation())
+	logger.Println("\nThe following policy criteria will be enforced:")
+	logger.Println(ec.BuildPolicyInformation())
 
-	verified, errMsg, err := verifyAttestations(*artifact, attestations, cfg.SigstoreVerifier, ec)
+	verified, errMsg, err := verifyAttestations(*artifact, attestations, sgVerifier, ec)
 	if err != nil {
 		logger.Println(logger.ColorScheme.Red(errMsg))
 		return err
@@ -322,4 +320,26 @@ func buildTableVerifyContent(tenant string, results []*verification.AttestationP
 	}
 
 	return content, nil
+}
+
+func newAPIClient(f *cmdutil.Factory, hostname string, logger *io.Handler) (api.Client, error) {
+	hc, err := f.HttpClient()
+	if err != nil {
+		return nil, err
+	}
+	return api.NewLiveClient(hc, hostname, logger), nil
+}
+
+// configure tenancy if detected
+func configureTenancy(apiClient api.Client, hostname string) (string, string, error) {
+	td, err := apiClient.GetTrustDomain()
+	if err != nil {
+		return "", "", fmt.Errorf("error getting trust domain, make sure you are authenticated against the host: %w", err)
+	}
+
+	tenant, found := ghinstance.TenantName(hostname)
+	if !found {
+		return "", "", fmt.Errorf("invalid hostname provided: '%s'", hostname)
+	}
+	return td, tenant, nil
 }

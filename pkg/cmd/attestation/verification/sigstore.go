@@ -58,7 +58,6 @@ func NewLiveSigstoreVerifier(config SigstoreConfig) *LiveSigstoreVerifier {
 		TrustedRoot:  config.TrustedRoot,
 		Logger:       config.Logger,
 		NoPublicGood: config.NoPublicGood,
-		TrustDomain:  config.TrustDomain,
 	}
 }
 
