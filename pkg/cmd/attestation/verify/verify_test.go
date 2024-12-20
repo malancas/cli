@@ -460,7 +460,6 @@ func TestRunVerify(t *testing.T) {
 	})
 
 	t.Run("with missing API client", func(t *testing.T) {
-		//customOpts.BundlePath = ""
 		require.Error(t, runVerify(&publicGoodOpts, logger, nil, ociClient, sigstoreVerifier))
 	})
 
@@ -469,7 +468,7 @@ func TestRunVerify(t *testing.T) {
 		customOpts.ArtifactPath = "oci://ghcr.io/github/test"
 		customOpts.BundlePath = ""
 
-		require.Nil(t, runVerify(&customOpts, logger, apiClient, ociClient, sigstoreVerifier))
+		require.NoError(t, runVerify(&customOpts, logger, apiClient, ociClient, sigstoreVerifier))
 	})
 
 	t.Run("with valid OCI artifact with UseBundleFromRegistry flag", func(t *testing.T) {

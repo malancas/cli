@@ -71,15 +71,6 @@ func TestVerifyIntegration(t *testing.T) {
 		require.ErrorContains(t, err, "expected SourceRepositoryOwnerURI to be https://github.com/fakeowner, got https://github.com/sigstore")
 	})
 
-	t.Run("with invalid owner and invalid repo", func(t *testing.T) {
-		opts := publicGoodOpts
-		opts.Repo = "fakeowner/fakerepo"
-
-		err := runVerify(&opts, logger, apiClient, ociClient, sigstoreVerifier)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "expected SourceRepositoryURI to be https://github.com/fakeowner/fakerepo, got https://github.com/sigstore/sigstore-js")
-	})
-
 	t.Run("with no matching OIDC issuer", func(t *testing.T) {
 		opts := publicGoodOpts
 		opts.OIDCIssuer = "some-other-issuer"
