@@ -351,8 +351,6 @@ jobs:
           )
           if [[ $TAG_NAME == *-* ]]; then
             release_args+=( --prerelease )
-          else
-            release_args+=( --discussion-category "General" )
           fi
           guard="echo"
           [ "$DO_PUBLISH" = "false" ] || guard=""

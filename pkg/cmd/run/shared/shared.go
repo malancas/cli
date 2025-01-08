@@ -27,6 +27,7 @@ const (
 	InProgress Status = "in_progress"
 	Requested  Status = "requested"
 	Waiting    Status = "waiting"
+	Pending    Status = "pending"
 
 	// Run conclusions
 	ActionRequired Conclusion = "action_required"
@@ -53,6 +54,7 @@ var AllStatuses = []string{
 	"in_progress",
 	"requested",
 	"waiting",
+	"pending",
 	"action_required",
 	"cancelled",
 	"failure",
