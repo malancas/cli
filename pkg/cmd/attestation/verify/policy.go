@@ -14,6 +14,7 @@ import (
 )
 
 const hostRegex = `^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+.*$`
+const workflowURIRegex = `^https:\/\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+.*\/.github\/workflows\/[a-zA-Z0-9-]+.(yml|yaml)$`
 
 func expandToGitHubURL(tenant, ownerOrRepo string) string {
 	if tenant == "" {
@@ -66,7 +67,7 @@ func newEnforcementCriteria(opts *Options) (verification.EnforcementCriteria, er
 		// then we default to the repo option
 		c.SANRegex = expandToGitHubURLRegex(opts.Tenant, opts.Repo)
 	} else {
-		// if opts.Repo was not provided, we fallback to the opts.Owner value
+		// if opts.Repo was not provided, we fall back to the opts.Owner value
 		c.SANRegex = expandToGitHubURLRegex(opts.Tenant, owner)
 	}
 
@@ -98,7 +99,42 @@ func newEnforcementCriteria(opts *Options) (verification.EnforcementCriteria, er
 		c.Certificate.Issuer = opts.OIDCIssuer
 	}
 
+	if opts.SignerDigest != "" {
+		c.Certificate.BuildSignerDigest = opts.SignerDigest
+	}
+
+	if opts.SignerRef != "" {
+		// need to build the full URI value
+		uri, err := getFullWorkflowURI(c.SANRegex)
+		if err != nil {
+			return verification.EnforcementCriteria{}, err
+		}
+		c.Certificate.BuildSignerURI = uri
+	}
+
+	if opts.SourceDigest != "" {
+		c.Certificate.SourceRepositoryDigest = opts.SourceDigest
+	}
+
+	if opts.SourceRef != "" {
+		c.Certificate.SourceRepositoryRef = opts.SourceRef
+	}
+
 	return c, nil
+}
+
+func getFullWorkflowURI(s string) (string, error) {
+	trimmed, _ := strings.CutPrefix(s, "^")
+	match, err := regexp.MatchString(workflowURIRegex, trimmed)
+	if err != nil {
+		return "", err
+	}
+
+	if !match {
+		return "", nil
+	}
+
+	return trimmed, nil
 }
 
 func buildCertificateIdentityOption(c verification.EnforcementCriteria) (verify.PolicyOption, error) {
