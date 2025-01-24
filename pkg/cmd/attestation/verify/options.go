@@ -35,8 +35,8 @@ type Options struct {
 	SignerRef             string
 	SignerRepo            string
 	SignerWorkflow        string
-	SourceRef             string
 	SourceDigest          string
+	SourceRef             string
 	APIClient             api.Client
 	Logger                *io.Handler
 	OCIClient             oci.Client
