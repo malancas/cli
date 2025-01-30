@@ -1,7 +1,6 @@
 package verify
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/cli/cli/v2/pkg/cmd/attestation/verification"
@@ -296,25 +295,25 @@ func TestValidateSignerWorkflow(t *testing.T) {
 		{
 			name:                   "workflow with default host",
 			providedSignerWorkflow: "github/artifact-attestations-workflows/.github/workflows/attest.yml",
-			expectedWorkflowRegex:  "^https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
+			expectedWorkflowRegex:  "https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
 			host:                   "github.com",
 		},
 		{
 			name:                   "workflow with workflow URL included",
 			providedSignerWorkflow: "github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
-			expectedWorkflowRegex:  "^https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
+			expectedWorkflowRegex:  "https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
 			host:                   "github.com",
 		},
 		{
 			name:                   "workflow with GH_HOST set",
 			providedSignerWorkflow: "github/artifact-attestations-workflows/.github/workflows/attest.yml",
-			expectedWorkflowRegex:  "^https://myhost.github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
+			expectedWorkflowRegex:  "https://myhost.github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
 			host:                   "myhost.github.com",
 		},
 		{
 			name:                   "workflow with authenticated host",
 			providedSignerWorkflow: "github/artifact-attestations-workflows/.github/workflows/attest.yml",
-			expectedWorkflowRegex:  "^https://authedhost.github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
+			expectedWorkflowRegex:  "https://authedhost.github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
 			host:                   "authedhost.github.com",
 		},
 	}
@@ -332,17 +331,4 @@ func TestValidateSignerWorkflow(t *testing.T) {
 			require.Equal(t, tc.expectedWorkflowRegex, workflowRegex)
 		}
 	}
-}
-
-func TestGetFullWorkflowURI(t *testing.T) {
-	expectedURI := "https://github.com/foo/bar/.github/workflows/mybuildjob.yaml"
-	// exact matching
-	uri, err := getFullWorkflowURI(expectedURI)
-	require.NoError(t, err)
-	require.Equal(t, expectedURI, uri)
-
-	// matching after stripping regex prefix characters
-	uri, err = getFullWorkflowURI(fmt.Sprintf("^%s", expectedURI))
-	require.NoError(t, err)
-	require.Equal(t, expectedURI, uri)
 }

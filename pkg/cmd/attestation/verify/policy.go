@@ -13,7 +13,7 @@ import (
 	"github.com/cli/cli/v2/pkg/cmd/attestation/verification"
 )
 
-const workflowURIRegex = `^https:\/\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+.*\/.github\/workflows\/.*\/[a-zA-Z0-9-]+.(yml|yaml)$`
+const hostRegex = `^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+.*$`
 
 func expandToGitHubURL(tenant, ownerOrRepo string) string {
 	if tenant == "" {
@@ -113,20 +113,6 @@ func newEnforcementCriteria(opts *Options) (verification.EnforcementCriteria, er
 	return c, nil
 }
 
-func getFullWorkflowURI(s string) (string, error) {
-	trimmed, _ := strings.CutPrefix(s, "^")
-	match, err := regexp.MatchString(workflowURIRegex, trimmed)
-	if err != nil {
-		return "", err
-	}
-
-	if !match {
-		return "", nil
-	}
-
-	return trimmed, nil
-}
-
 func buildCertificateIdentityOption(c verification.EnforcementCriteria) (verify.PolicyOption, error) {
 	sanMatcher, err := verify.NewSANMatcher(c.SAN, c.SANRegex)
 	if err != nil {
@@ -169,7 +155,7 @@ func buildSigstoreVerifyPolicy(c verification.EnforcementCriteria, a artifact.Di
 func validateSignerWorkflow(hostname, signerWorkflow string) (string, error) {
 	// we expect a provided workflow argument be in the format [HOST/]/<OWNER>/<REPO>/path/to/workflow.yml
 	// if the provided workflow does not contain a host, set the host
-	match, err := regexp.MatchString(workflowURIRegex, signerWorkflow)
+	match, err := regexp.MatchString(hostRegex, signerWorkflow)
 	if err != nil {
 		return "", err
 	}
