@@ -13,8 +13,7 @@ import (
 	"github.com/cli/cli/v2/pkg/cmd/attestation/verification"
 )
 
-const hostRegex = `^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+.*$`
-const workflowURIRegex = `^https:\/\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+.*\/.github\/workflows\/[a-zA-Z0-9-]+.(yml|yaml)$`
+const workflowURIRegex = `^https:\/\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+.*\/.github\/workflows\/.*\/[a-zA-Z0-9-]+.(yml|yaml)$`
 
 func expandToGitHubURL(tenant, ownerOrRepo string) string {
 	if tenant == "" {
@@ -57,11 +56,17 @@ func newEnforcementCriteria(opts *Options) (verification.EnforcementCriteria, er
 		signedRepoRegex := expandToGitHubURLRegex(opts.Tenant, opts.SignerRepo)
 		c.SANRegex = signedRepoRegex
 	} else if opts.SignerWorkflow != "" {
-		validatedWorkflowRegex, err := validateSignerWorkflow(opts.Hostname, opts.SignerWorkflow)
+		validatedWorkflow, err := validateSignerWorkflow(opts.Hostname, opts.SignerWorkflow)
 		if err != nil {
 			return verification.EnforcementCriteria{}, err
 		}
-		c.SANRegex = validatedWorkflowRegex
+
+		workflowRegex := fmt.Sprintf("^%s", validatedWorkflow)
+		c.SANRegex = workflowRegex
+
+		if opts.SignerRef != "" {
+			c.Certificate.BuildSignerURI = fmt.Sprintf("%s@%s", validatedWorkflow, opts.SignerRef)
+		}
 	} else if opts.Repo != "" {
 		// if the user has not provided the SAN, SANRegex, SignerRepo, or SignerWorkflow options
 		// then we default to the repo option
@@ -99,26 +104,11 @@ func newEnforcementCriteria(opts *Options) (verification.EnforcementCriteria, er
 		c.Certificate.Issuer = opts.OIDCIssuer
 	}
 
-	if opts.SignerDigest != "" {
-		c.Certificate.BuildSignerDigest = opts.SignerDigest
-	}
-
-	if opts.SignerRef != "" {
-		// need to build the full URI value
-		uri, err := getFullWorkflowURI(c.SANRegex)
-		if err != nil {
-			return verification.EnforcementCriteria{}, err
-		}
-		c.Certificate.BuildSignerURI = uri
-	}
-
-	if opts.SourceDigest != "" {
-		c.Certificate.SourceRepositoryDigest = opts.SourceDigest
-	}
-
-	if opts.SourceRef != "" {
-		c.Certificate.SourceRepositoryRef = opts.SourceRef
-	}
+	// set the SourceRepositoryDigest, SourceRepositoryRef, and BuildSignerDigest
+	// extensions if the options are provided
+	c.Certificate.BuildSignerDigest = opts.SignerDigest
+	c.Certificate.SourceRepositoryDigest = opts.SourceDigest
+	c.Certificate.SourceRepositoryRef = opts.SourceRef
 
 	return c, nil
 }
@@ -179,13 +169,13 @@ func buildSigstoreVerifyPolicy(c verification.EnforcementCriteria, a artifact.Di
 func validateSignerWorkflow(hostname, signerWorkflow string) (string, error) {
 	// we expect a provided workflow argument be in the format [HOST/]/<OWNER>/<REPO>/path/to/workflow.yml
 	// if the provided workflow does not contain a host, set the host
-	match, err := regexp.MatchString(hostRegex, signerWorkflow)
+	match, err := regexp.MatchString(workflowURIRegex, signerWorkflow)
 	if err != nil {
 		return "", err
 	}
 
 	if match {
-		return fmt.Sprintf("^https://%s", signerWorkflow), nil
+		return fmt.Sprintf("https://%s", signerWorkflow), nil
 	}
 
 	// if the provided workflow did not match the expect format
@@ -194,5 +184,5 @@ func validateSignerWorkflow(hostname, signerWorkflow string) (string, error) {
 		return "", errors.New("unknown host")
 	}
 
-	return fmt.Sprintf("^https://%s/%s", hostname, signerWorkflow), nil
+	return fmt.Sprintf("https://%s/%s", hostname, signerWorkflow), nil
 }

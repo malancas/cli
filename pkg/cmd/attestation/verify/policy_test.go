@@ -217,6 +217,63 @@ func TestNewEnforcementCriteria(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "https://foo.com", c.Certificate.Issuer)
 	})
+
+	t.Run("sets Certificate.BuildSignerURI using SignerWorkflow and SignerRef", func(t *testing.T) {
+		opts := &Options{
+			ArtifactPath:   artifactPath,
+			Owner:          "wrong",
+			Repo:           "wrong/value",
+			SignerWorkflow: "foo/bar/.github/workflows/attest.yml",
+			SignerRef:      "refs/heads/main",
+			Hostname:       "github.com",
+		}
+
+		c, err := newEnforcementCriteria(opts)
+		require.NoError(t, err)
+		require.Equal(t, "https://github.com/foo/bar/.github/workflows/attest.yml@refs/heads/main", c.Certificate.BuildSignerURI)
+	})
+
+	t.Run("sets Certificate.BuildSignerDigest using opts.SignerDigest", func(t *testing.T) {
+		opts := &Options{
+			ArtifactPath: artifactPath,
+			Owner:        "wrong",
+			Repo:         "wrong/value",
+			SignerDigest: "foo",
+			Hostname:     "github.com",
+		}
+
+		c, err := newEnforcementCriteria(opts)
+		require.NoError(t, err)
+		require.Equal(t, "foo", c.Certificate.BuildSignerDigest)
+	})
+
+	t.Run("sets Certificate.SourceRepositoryDigest using opts.SourceDigest", func(t *testing.T) {
+		opts := &Options{
+			ArtifactPath: artifactPath,
+			Owner:        "wrong",
+			Repo:         "wrong/value",
+			SourceDigest: "foo",
+			Hostname:     "github.com",
+		}
+
+		c, err := newEnforcementCriteria(opts)
+		require.NoError(t, err)
+		require.Equal(t, "foo", c.Certificate.SourceRepositoryDigest)
+	})
+
+	t.Run("sets Certificate.SourceRepositoryRef using opts.SourceRef", func(t *testing.T) {
+		opts := &Options{
+			ArtifactPath: artifactPath,
+			Owner:        "wrong",
+			Repo:         "wrong/value",
+			SourceRef:    "refs/heads/main",
+			Hostname:     "github.com",
+		}
+
+		c, err := newEnforcementCriteria(opts)
+		require.NoError(t, err)
+		require.Equal(t, "refs/heads/main", c.Certificate.SourceRepositoryRef)
+	})
 }
 
 func TestValidateSignerWorkflow(t *testing.T) {

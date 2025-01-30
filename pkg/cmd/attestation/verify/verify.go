@@ -187,14 +187,18 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 	verifyCmd.Flags().IntVarP(&opts.Limit, "limit", "L", api.DefaultLimit, "Maximum number of attestations to fetch")
 	cmdutil.AddFormatFlags(verifyCmd, &opts.exporter)
 	// policy enforcement flags
-	verifyCmd.Flags().BoolVarP(&opts.DenySelfHostedRunner, "deny-self-hosted-runners", "", false, "Fail verification for attestations generated on self-hosted runners")
 	verifyCmd.Flags().StringVarP(&opts.SAN, "cert-identity", "", "", "Enforce that the certificate's subject alternative name matches the provided value exactly")
 	verifyCmd.Flags().StringVarP(&opts.SANRegex, "cert-identity-regex", "i", "", "Enforce that the certificate's subject alternative name matches the provided regex")
-	verifyCmd.Flags().StringVarP(&opts.SignerRepo, "signer-repo", "", "", "Repository of reusable workflow that signed attestation in the format <owner>/<repo>")
-	verifyCmd.Flags().StringVarP(&opts.SignerWorkflow, "signer-workflow", "", "", "Workflow that signed attestation in the format [host/]<owner>/<repo>/<path>/<to>/<workflow>")
 	verifyCmd.MarkFlagsMutuallyExclusive("cert-identity", "cert-identity-regex", "signer-repo", "signer-workflow")
 	verifyCmd.Flags().StringVarP(&opts.OIDCIssuer, "cert-oidc-issuer", "", verification.GitHubOIDCIssuer, "Issuer of the OIDC token")
+	verifyCmd.Flags().BoolVarP(&opts.DenySelfHostedRunner, "deny-self-hosted-runners", "", false, "Fail verification for attestations generated on self-hosted runners")
 	verifyCmd.Flags().StringVarP(&opts.Hostname, "hostname", "", "", "Configure host to use")
+	verifyCmd.Flags().StringVarP(&opts.SignerDigest, "signer-digest", "", "", "Digest associated with the signer workflow")
+	verifyCmd.Flags().StringVarP(&opts.SignerRepo, "signer-repo", "", "", "Repository of reusable workflow that signed attestation in the format <owner>/<repo>")
+	verifyCmd.Flags().StringVarP(&opts.SignerWorkflow, "signer-workflow", "", "", "Workflow that signed attestation in the format [host/]<owner>/<repo>/<path>/<to>/<workflow>")
+	verifyCmd.Flags().StringVarP(&opts.SignerRef, "signer-ref", "", "", "Ref associated with the signer workflow. signer-workflow must be provided to use this")
+	verifyCmd.Flags().StringVarP(&opts.SourceRef, "source-ref", "", "", "Ref associated with the source workflow")
+	verifyCmd.Flags().StringVarP(&opts.SourceDigest, "source-digest", "", "", "Digest associated with the source workflow")
 
 	return verifyCmd
 }
