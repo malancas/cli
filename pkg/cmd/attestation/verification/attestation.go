@@ -54,12 +54,12 @@ func GetLocalAttestations(path string) ([]*api.Attestation, error) {
 }
 
 func loadBundleFromJSONFile(path string) ([]*api.Attestation, error) {
-	localAttestation, err := bundle.LoadJSONFromPath(path)
+	b, err := bundle.LoadJSONFromPath(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return []*api.Attestation{{Bundle: localAttestation}}, nil
+	return []*api.Attestation{{Bundle: b}}, nil
 }
 
 func loadBundlesFromJSONLinesFile(path string) ([]*api.Attestation, error) {
