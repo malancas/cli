@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -263,6 +264,8 @@ func NewCmdApi(f *cmdutil.Factory, runF func(*ApiOptions) error) *cobra.Command 
 			); err != nil {
 				return err
 			}
+
+			opts.RequestPath = escapePathWithPackageName(opts.RequestPath)
 
 			if runF != nil {
 				return runF(&opts)
@@ -688,4 +691,18 @@ func previewNamesToMIMETypes(names []string) string {
 		types = append(types, fmt.Sprintf("application/vnd.github.%s-preview", p))
 	}
 	return strings.Join(types, ", ")
+}
+
+var pathWithPackageNameRE = regexp.MustCompile(`^\/(?:orgs|user|users)(?:\/.*)?\/packages\/(?:npm|maven|rubygems|docker|nuget|container)\/(?<package>.*?)(?:\/(?:restore|versions)|$)`)
+
+func escapePathWithPackageName(path string) string {
+	matches := pathWithPackageNameRE.FindStringSubmatch(path)
+	if len(matches) > 0 {
+		i := pathWithPackageNameRE.SubexpIndex("package")
+		packageName := matches[i]
+		if packageName != "" {
+			return strings.Replace(path, packageName, url.QueryEscape(packageName), 1)
+		}
+	}
+	return path
 }
