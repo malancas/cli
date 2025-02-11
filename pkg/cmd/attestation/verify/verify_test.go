@@ -501,6 +501,18 @@ func TestRunVerify(t *testing.T) {
 		require.Nil(t, runVerify(&customOpts))
 	})
 
+	t.Run("with valid OCI artifact with UseBundleFromRegistry flag and unknown predicate type", func(t *testing.T) {
+		customOpts := publicGoodOpts
+		customOpts.ArtifactPath = "oci://ghcr.io/github/test"
+		customOpts.BundlePath = ""
+		customOpts.UseBundleFromRegistry = true
+		customOpts.PredicateType = "https://predicate.type"
+
+		err := runVerify(&customOpts)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "no matching predicate found")
+	})
+
 	t.Run("with valid OCI artifact with UseBundleFromRegistry flag but no bundle return from registry", func(t *testing.T) {
 		customOpts := publicGoodOpts
 		customOpts.ArtifactPath = "oci://ghcr.io/github/test"

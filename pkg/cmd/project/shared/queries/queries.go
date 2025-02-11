@@ -250,7 +250,7 @@ type FieldValueNodes struct {
 		Field ProjectField
 	} `graphql:"... on ProjectV2ItemFieldLabelValue"`
 	ProjectV2ItemFieldNumberValue struct {
-		Number float32
+		Number float64
 		Field  ProjectField
 	} `graphql:"... on ProjectV2ItemFieldNumberValue"`
 	ProjectV2ItemFieldSingleSelectValue struct {

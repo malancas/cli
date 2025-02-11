@@ -463,9 +463,11 @@ func processResponse(resp *http.Response, opts *ApiOptions, bodyWriter, headersW
 
 	var serverError string
 	if isJSON && (opts.RequestPath == "graphql" || resp.StatusCode >= 400) {
-		responseBody, serverError, err = parseErrorResponse(responseBody, resp.StatusCode)
-		if err != nil {
-			return
+		if !strings.EqualFold(opts.RequestMethod, "HEAD") {
+			responseBody, serverError, err = parseErrorResponse(responseBody, resp.StatusCode)
+			if err != nil {
+				return
+			}
 		}
 	}
 

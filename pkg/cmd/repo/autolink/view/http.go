@@ -30,7 +30,7 @@ func (a *AutolinkViewer) View(repo ghrepo.Interface, id string) (*shared.Autolin
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("HTTP 404: Either no autolink with this ID exists for this repository or you are missing admin rights to the repository. (https://api.github.com/%s)", path)
+		return nil, fmt.Errorf("HTTP 404: Perhaps you are missing admin rights to the repository? (https://api.github.com/%s)", path)
 	} else if resp.StatusCode > 299 {
 		return nil, api.HandleHTTPError(resp)
 	}

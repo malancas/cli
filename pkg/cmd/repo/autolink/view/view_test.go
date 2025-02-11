@@ -49,13 +49,12 @@ func TestNewCmdView(t *testing.T) {
 		{
 			name:         "json flag",
 			input:        "123 --json id",
-			output:       viewOptions{},
+			output:       viewOptions{ID: "123"},
 			wantExporter: true,
 		},
 		{
 			name:    "invalid json flag",
 			input:   "123 --json invalid",
-			output:  viewOptions{},
 			wantErr: true,
 			errMsg:  "Unknown JSON field: \"invalid\"\nAvailable fields:\n  id\n  isAlphanumeric\n  keyPrefix\n  urlTemplate",
 		},
@@ -91,17 +90,18 @@ func TestNewCmdView(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantExporter, gotOpts.Exporter != nil)
+				assert.Equal(t, tt.output.ID, gotOpts.ID)
 			}
 		})
 	}
 }
 
-type stubAutoLinkViewer struct {
+type stubAutolinkViewer struct {
 	autolink *shared.Autolink
 	err      error
 }
 
-func (g stubAutoLinkViewer) View(repo ghrepo.Interface, id string) (*shared.Autolink, error) {
+func (g stubAutolinkViewer) View(repo ghrepo.Interface, id string) (*shared.Autolink, error) {
 	return g.autolink, g.err
 }
 
@@ -115,7 +115,7 @@ func TestViewRun(t *testing.T) {
 	tests := []struct {
 		name        string
 		opts        *viewOptions
-		stubViewer  stubAutoLinkViewer
+		stubViewer  stubAutolinkViewer
 		expectedErr error
 		wantStdout  string
 	}{
@@ -124,7 +124,7 @@ func TestViewRun(t *testing.T) {
 			opts: &viewOptions{
 				ID: "1",
 			},
-			stubViewer: stubAutoLinkViewer{
+			stubViewer: stubAutolinkViewer{
 				autolink: &shared.Autolink{
 					ID:             1,
 					KeyPrefix:      "TICKET-",
@@ -150,7 +150,7 @@ func TestViewRun(t *testing.T) {
 					return exporter
 				}(),
 			},
-			stubViewer: stubAutoLinkViewer{
+			stubViewer: stubAutolinkViewer{
 				autolink: &shared.Autolink{
 					ID:             1,
 					KeyPrefix:      "TICKET-",
@@ -163,7 +163,7 @@ func TestViewRun(t *testing.T) {
 		{
 			name: "client error",
 			opts: &viewOptions{},
-			stubViewer: stubAutoLinkViewer{
+			stubViewer: stubAutolinkViewer{
 				autolink: nil,
 				err:      testAutolinkClientViewError{},
 			},

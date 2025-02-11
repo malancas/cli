@@ -89,8 +89,14 @@ func listRun(opts *listOptions) error {
 		return err
 	}
 
+	cs := opts.IO.ColorScheme()
+
 	if len(autolinks) == 0 {
-		return cmdutil.NewNoResultsError(fmt.Sprintf("no autolinks found in %s", ghrepo.FullName(repo)))
+		return cmdutil.NewNoResultsError(
+			fmt.Sprintf(
+				"no autolinks found in %s",
+				cs.Bold(ghrepo.FullName(repo))),
+		)
 	}
 
 	if opts.Exporter != nil {
@@ -98,13 +104,15 @@ func listRun(opts *listOptions) error {
 	}
 
 	if opts.IO.IsStdoutTTY() {
-		title := listHeader(ghrepo.FullName(repo), len(autolinks))
+		title := fmt.Sprintf(
+			"Showing %s in %s",
+			text.Pluralize(len(autolinks), "autolink reference"),
+			cs.Bold(ghrepo.FullName(repo)),
+		)
 		fmt.Fprintf(opts.IO.Out, "\n%s\n\n", title)
 	}
 
 	tp := tableprinter.New(opts.IO, tableprinter.WithHeader("ID", "KEY PREFIX", "URL TEMPLATE", "ALPHANUMERIC"))
-
-	cs := opts.IO.ColorScheme()
 
 	for _, autolink := range autolinks {
 		tp.AddField(cs.Cyanf("%d", autolink.ID))
@@ -115,8 +123,4 @@ func listRun(opts *listOptions) error {
 	}
 
 	return tp.Render()
-}
-
-func listHeader(repoName string, count int) string {
-	return fmt.Sprintf("Showing %s in %s", text.Pluralize(count, "autolink reference"), repoName)
 }

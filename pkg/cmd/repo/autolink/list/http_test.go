@@ -23,7 +23,7 @@ func TestAutolinkLister_List(t *testing.T) {
 			name:   "no autolinks",
 			repo:   ghrepo.New("OWNER", "REPO"),
 			resp:   []shared.Autolink{},
-			status: 200,
+			status: http.StatusOK,
 		},
 		{
 			name: "two autolinks",
@@ -42,12 +42,12 @@ func TestAutolinkLister_List(t *testing.T) {
 					URLTemplate:    "https://example2.com",
 				},
 			},
-			status: 200,
+			status: http.StatusOK,
 		},
 		{
 			name:   "http error",
 			repo:   ghrepo.New("OWNER", "REPO"),
-			status: 404,
+			status: http.StatusNotFound,
 		},
 	}
 
@@ -64,7 +64,7 @@ func TestAutolinkLister_List(t *testing.T) {
 				HTTPClient: &http.Client{Transport: reg},
 			}
 			autolinks, err := autolinkLister.List(tt.repo)
-			if tt.status == 404 {
+			if tt.status == http.StatusNotFound {
 				require.Error(t, err)
 				assert.Equal(t, "error getting autolinks: HTTP 404: Perhaps you are missing admin rights to the repository? (https://api.github.com/repos/OWNER/REPO/autolinks)", err.Error())
 			} else {

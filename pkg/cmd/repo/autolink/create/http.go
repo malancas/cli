@@ -45,10 +45,6 @@ func (a *AutolinkCreator) Create(repo ghrepo.Interface, request AutolinkCreateRe
 
 	defer resp.Body.Close()
 
-	// if resp.StatusCode != http.StatusCreated {
-	// 	return nil, api.HandleHTTPError(resp)
-	// }
-
 	err = handleAutolinkCreateError(resp)
 
 	if err != nil {

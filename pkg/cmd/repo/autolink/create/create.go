@@ -112,7 +112,7 @@ func createRun(opts *createOptions) error {
 		"%s Created repository autolink %s on %s\n",
 		cs.SuccessIconWithColor(cs.Green),
 		cs.Cyanf("%d", autolink.ID),
-		ghrepo.FullName(repo))
+		cs.Bold(ghrepo.FullName(repo)))
 
 	return nil
 }

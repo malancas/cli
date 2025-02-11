@@ -28,7 +28,7 @@ func TestAutolinkViewer_View(t *testing.T) {
 		{
 			name:       "200 successful alphanumeric view",
 			id:         "123",
-			stubStatus: 200,
+			stubStatus: http.StatusOK,
 			stubRespJSON: `{
 				"id": 123,
 				"key_prefix": "TICKET-",
@@ -45,7 +45,7 @@ func TestAutolinkViewer_View(t *testing.T) {
 		{
 			name:       "200 successful numeric view",
 			id:         "123",
-			stubStatus: 200,
+			stubStatus: http.StatusOK,
 			stubRespJSON: `{
 				"id": 123,
 				"key_prefix": "TICKET-",
@@ -62,14 +62,14 @@ func TestAutolinkViewer_View(t *testing.T) {
 		{
 			name:       "404 repo or autolink not found",
 			id:         "123",
-			stubStatus: 404,
+			stubStatus: http.StatusNotFound,
 			stubRespJSON: `{
 				"message": "Not Found",
 				"documentation_url": "https://docs.github.com/rest/repos/autolinks#get-an-autolink-reference-of-a-repository",
 				"status": "404"
 			}`,
 			expectErr:      true,
-			expectedErrMsg: "HTTP 404: Either no autolink with this ID exists for this repository or you are missing admin rights to the repository. (https://api.github.com/repos/OWNER/REPO/autolinks/123)",
+			expectedErrMsg: "HTTP 404: Perhaps you are missing admin rights to the repository? (https://api.github.com/repos/OWNER/REPO/autolinks/123)",
 		},
 	}
 
@@ -85,11 +85,11 @@ func TestAutolinkViewer_View(t *testing.T) {
 			)
 			defer reg.Verify(t)
 
-			autolinkCreator := &AutolinkViewer{
+			autolinkViewer := &AutolinkViewer{
 				HTTPClient: &http.Client{Transport: reg},
 			}
 
-			autolink, err := autolinkCreator.View(repo, tt.id)
+			autolink, err := autolinkViewer.View(repo, tt.id)
 
 			if tt.expectErr {
 				require.EqualError(t, err, tt.expectedErrMsg)

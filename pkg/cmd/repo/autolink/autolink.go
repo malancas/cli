@@ -3,6 +3,7 @@ package autolink
 import (
 	"github.com/MakeNowJust/heredoc"
 	cmdCreate "github.com/cli/cli/v2/pkg/cmd/repo/autolink/create"
+	cmdDelete "github.com/cli/cli/v2/pkg/cmd/repo/autolink/delete"
 	cmdList "github.com/cli/cli/v2/pkg/cmd/repo/autolink/list"
 	cmdView "github.com/cli/cli/v2/pkg/cmd/repo/autolink/view"
 	"github.com/cli/cli/v2/pkg/cmdutil"
@@ -26,6 +27,7 @@ func NewCmdAutolink(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(cmdList.NewCmdList(f, nil))
 	cmd.AddCommand(cmdCreate.NewCmdCreate(f, nil))
 	cmd.AddCommand(cmdView.NewCmdView(f, nil))
+	cmd.AddCommand(cmdDelete.NewCmdDelete(f, nil))
 
 	return cmd
 }

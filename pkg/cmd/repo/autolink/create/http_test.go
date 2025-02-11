@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAutoLinkCreator_Create(t *testing.T) {
+func TestAutolinkCreator_Create(t *testing.T) {
 	repo := ghrepo.New("OWNER", "REPO")
 
 	tests := []struct {

@@ -78,7 +78,7 @@ func viewRun(opts *viewOptions) error {
 		return opts.Exporter.Write(opts.IO, autolink)
 	}
 
-	fmt.Fprintf(out, "Autolink in %s\n\n", ghrepo.FullName(repo))
+	fmt.Fprintf(out, "Autolink in %s\n\n", cs.Bold(ghrepo.FullName(repo)))
 
 	fmt.Fprint(out, cs.Bold("ID: "))
 	fmt.Fprintln(out, cs.Cyanf("%d", autolink.ID))

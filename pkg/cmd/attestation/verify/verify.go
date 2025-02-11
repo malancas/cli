@@ -236,7 +236,7 @@ func runVerify(opts *Options) error {
 	filteredAttestations := verification.FilterAttestations(ec.PredicateType, attestations)
 	if len(filteredAttestations) == 0 {
 		opts.Logger.Printf(opts.Logger.ColorScheme.Red("✗ No attestations found with predicate type: %s\n"), opts.PredicateType)
-		return err
+		return fmt.Errorf("no matching predicate found")
 	}
 	attestations = filteredAttestations
 

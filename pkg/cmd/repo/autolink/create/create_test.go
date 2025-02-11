@@ -92,11 +92,11 @@ func TestNewCmdCreate(t *testing.T) {
 	}
 }
 
-type stubAutoLinkCreator struct {
+type stubAutolinkCreator struct {
 	err error
 }
 
-func (g stubAutoLinkCreator) Create(repo ghrepo.Interface, request AutolinkCreateRequest) (*shared.Autolink, error) {
+func (g stubAutolinkCreator) Create(repo ghrepo.Interface, request AutolinkCreateRequest) (*shared.Autolink, error) {
 	if g.err != nil {
 		return nil, g.err
 	}
@@ -119,7 +119,7 @@ func TestCreateRun(t *testing.T) {
 	tests := []struct {
 		name        string
 		opts        *createOptions
-		stubCreator stubAutoLinkCreator
+		stubCreator stubAutolinkCreator
 		expectedErr error
 		errMsg      string
 		wantStdout  string
@@ -131,7 +131,7 @@ func TestCreateRun(t *testing.T) {
 				KeyPrefix:   "TICKET-",
 				URLTemplate: "https://example.com/TICKET?query=<num>",
 			},
-			stubCreator: stubAutoLinkCreator{},
+			stubCreator: stubAutolinkCreator{},
 			wantStdout:  "✓ Created repository autolink 1 on OWNER/REPO\n",
 		},
 		{
@@ -141,7 +141,7 @@ func TestCreateRun(t *testing.T) {
 				URLTemplate: "https://example.com/TICKET?query=<num>",
 				Numeric:     true,
 			},
-			stubCreator: stubAutoLinkCreator{},
+			stubCreator: stubAutolinkCreator{},
 			wantStdout:  "✓ Created repository autolink 1 on OWNER/REPO\n",
 		},
 		{
@@ -150,7 +150,7 @@ func TestCreateRun(t *testing.T) {
 				KeyPrefix:   "TICKET-",
 				URLTemplate: "https://example.com/TICKET?query=<num>",
 			},
-			stubCreator: stubAutoLinkCreator{err: testAutolinkClientCreateError{}},
+			stubCreator: stubAutolinkCreator{err: testAutolinkClientCreateError{}},
 			expectedErr: testAutolinkClientCreateError{},
 			errMsg:      fmt.Sprint("error creating autolink: ", testAutolinkClientCreateError{}.Error()),
 		},

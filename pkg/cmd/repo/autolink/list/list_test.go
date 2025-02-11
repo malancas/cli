@@ -96,12 +96,12 @@ func TestNewCmdList(t *testing.T) {
 	}
 }
 
-type stubAutoLinkLister struct {
+type stubAutolinkLister struct {
 	autolinks []shared.Autolink
 	err       error
 }
 
-func (g stubAutoLinkLister) List(repo ghrepo.Interface) ([]shared.Autolink, error) {
+func (g stubAutolinkLister) List(repo ghrepo.Interface) ([]shared.Autolink, error) {
 	return g.autolinks, g.err
 }
 
@@ -116,7 +116,7 @@ func TestListRun(t *testing.T) {
 		name        string
 		opts        *listOptions
 		isTTY       bool
-		stubLister  stubAutoLinkLister
+		stubLister  stubAutolinkLister
 		expectedErr error
 		wantStdout  string
 		wantStderr  string
@@ -125,7 +125,7 @@ func TestListRun(t *testing.T) {
 			name:  "list tty",
 			opts:  &listOptions{},
 			isTTY: true,
-			stubLister: stubAutoLinkLister{
+			stubLister: stubAutolinkLister{
 				autolinks: []shared.Autolink{
 					{
 						ID:             1,
@@ -161,7 +161,7 @@ func TestListRun(t *testing.T) {
 				}(),
 			},
 			isTTY: true,
-			stubLister: stubAutoLinkLister{
+			stubLister: stubAutolinkLister{
 				autolinks: []shared.Autolink{
 					{
 						ID:             1,
@@ -184,7 +184,7 @@ func TestListRun(t *testing.T) {
 			name:  "list non-tty",
 			opts:  &listOptions{},
 			isTTY: false,
-			stubLister: stubAutoLinkLister{
+			stubLister: stubAutolinkLister{
 				autolinks: []shared.Autolink{
 					{
 						ID:             1,
@@ -210,7 +210,7 @@ func TestListRun(t *testing.T) {
 			name:  "no results",
 			opts:  &listOptions{},
 			isTTY: true,
-			stubLister: stubAutoLinkLister{
+			stubLister: stubAutolinkLister{
 				autolinks: []shared.Autolink{},
 			},
 			expectedErr: cmdutil.NewNoResultsError("no autolinks found in OWNER/REPO"),
@@ -220,7 +220,7 @@ func TestListRun(t *testing.T) {
 			name:  "client error",
 			opts:  &listOptions{},
 			isTTY: true,
-			stubLister: stubAutoLinkLister{
+			stubLister: stubAutolinkLister{
 				autolinks: []shared.Autolink{},
 				err:       testAutolinkClientListError{},
 			},
