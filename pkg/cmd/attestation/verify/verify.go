@@ -81,6 +81,15 @@ func NewVerifyCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Command 
 			or %[1]s--cert-identity%[1]s flags to validate the signer workflow's identity.
 
 			For more policy verification options, see the other available flags.
+
+			When the %[1]s--format json%[1]s flag is included, the command will output
+			an array of JSON objects. Each object contains a verified attestation
+			bundle and another object called verificationResult. The verificationResult
+			object contains detailed information about the bundle's content and
+			fields used during the verification process. This includes:
+			- The attestation's signature
+			- The attestation's statement
+			- The attestation's predicate
 			`, "`"),
 		Example: heredoc.Doc(`
 			# Verify an artifact linked with a repository
