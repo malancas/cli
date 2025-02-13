@@ -52,14 +52,14 @@ func NewCmdRename(f *cmdutil.Factory, runf func(*RenameOptions) error) *cobra.Co
 		Short: "Rename a repository",
 		Long: heredoc.Docf(`
 			Rename a GitHub repository.
-			
+
 			%[1]s<new-name>%[1]s is the desired repository name without the owner.
-			
+
 			By default, the current repository is renamed. Otherwise, the repository specified
 			with %[1]s--repo%[1]s is renamed.
-			
+
 			To transfer repository ownership to another user account or organization,
-			you must follow additional steps on GitHub.com
+			you must follow additional steps on <github.com>.
 
 			For more information on transferring repository ownership, see:
 			<https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository>
@@ -126,7 +126,7 @@ func renameRun(opts *RenameOptions) error {
 	}
 
 	if strings.Contains(newRepoName, "/") {
-		return fmt.Errorf("New repository name cannot contain '/' character - to transfer a repository to a new owner, you must follow additional steps on GitHub.com. For more information on transferring repository ownership, see <https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository>.")
+		return fmt.Errorf("New repository name cannot contain '/' character - to transfer a repository to a new owner, you must follow additional steps on <github.com>. For more information on transferring repository ownership, see <https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository>.")
 	}
 
 	if opts.DoConfirm {
