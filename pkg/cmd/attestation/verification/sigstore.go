@@ -36,6 +36,10 @@ type SigstoreConfig struct {
 	TrustDomain string
 }
 
+type SignedEntityVerifier interface {
+	Verify(entity verify.SignedEntity, pb verify.PolicyBuilder) (*verify.VerificationResult, error)
+}
+
 type SigstoreVerifier interface {
 	Verify(attestations []*api.Attestation, policy verify.PolicyBuilder) ([]*AttestationProcessingResult, error)
 }
@@ -80,7 +84,7 @@ func getBundleIssuer(b *bundle.Bundle) (string, error) {
 	return leafCert.Issuer.Organization[0], nil
 }
 
-func (v *LiveSigstoreVerifier) chooseVerifier(issuer string) (*verify.SignedEntityVerifier, error) {
+func (v *LiveSigstoreVerifier) ChooseVerifier(issuer string) (SignedEntityVerifier, error) {
 	// if no custom trusted root is set, attempt to create a Public Good or
 	// GitHub Sigstore verifier
 	if v.TrustedRoot == "" {
@@ -170,7 +174,7 @@ func (v *LiveSigstoreVerifier) verify(attestation *api.Attestation, policy verif
 	}
 
 	// determine which verifier should attempt verification against the bundle
-	verifier, err := v.chooseVerifier(issuer)
+	verifier, err := v.ChooseVerifier(issuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find recognized issuer from bundle content: %v", err)
 	}
@@ -232,7 +236,7 @@ func (v *LiveSigstoreVerifier) Verify(attestations []*api.Attestation, policy ve
 	return results, nil
 }
 
-func newCustomVerifier(trustedRoot *root.TrustedRoot) (*verify.SignedEntityVerifier, error) {
+func newCustomVerifier(trustedRoot *root.TrustedRoot) (SignedEntityVerifier, error) {
 	// All we know about this trust root is its configuration so make some
 	// educated guesses as to what the policy should be.
 	verifierConfig := []verify.VerifierOption{}
@@ -255,7 +259,7 @@ func newCustomVerifier(trustedRoot *root.TrustedRoot) (*verify.SignedEntityVerif
 	return gv, nil
 }
 
-func newGitHubVerifier(trustDomain string) (*verify.SignedEntityVerifier, error) {
+func newGitHubVerifier(trustDomain string) (SignedEntityVerifier, error) {
 	var tr string
 
 	opts := GitHubTUFOptions()
@@ -280,7 +284,7 @@ func newGitHubVerifier(trustDomain string) (*verify.SignedEntityVerifier, error)
 	return newGitHubVerifierWithTrustedRoot(trustedRoot)
 }
 
-func newGitHubVerifierWithTrustedRoot(trustedRoot *root.TrustedRoot) (*verify.SignedEntityVerifier, error) {
+func newGitHubVerifierWithTrustedRoot(trustedRoot *root.TrustedRoot) (SignedEntityVerifier, error) {
 	gv, err := verify.NewSignedEntityVerifier(trustedRoot, verify.WithSignedTimestamps(1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GitHub verifier: %v", err)
@@ -289,7 +293,7 @@ func newGitHubVerifierWithTrustedRoot(trustedRoot *root.TrustedRoot) (*verify.Si
 	return gv, nil
 }
 
-func newPublicGoodVerifier() (*verify.SignedEntityVerifier, error) {
+func newPublicGoodVerifier() (SignedEntityVerifier, error) {
 	opts := DefaultOptionsWithCacheSetting()
 	client, err := tuf.New(opts)
 	if err != nil {
@@ -303,7 +307,7 @@ func newPublicGoodVerifier() (*verify.SignedEntityVerifier, error) {
 	return newPublicGoodVerifierWithTrustedRoot(trustedRoot)
 }
 
-func newPublicGoodVerifierWithTrustedRoot(trustedRoot *root.TrustedRoot) (*verify.SignedEntityVerifier, error) {
+func newPublicGoodVerifierWithTrustedRoot(trustedRoot *root.TrustedRoot) (SignedEntityVerifier, error) {
 	sv, err := verify.NewSignedEntityVerifier(trustedRoot, verify.WithSignedCertificateTimestamps(1), verify.WithTransparencyLog(1), verify.WithObserverTimestamps(1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Public Good verifier: %v", err)
