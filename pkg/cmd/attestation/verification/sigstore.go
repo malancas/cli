@@ -47,9 +47,10 @@ type SigstoreVerifier interface {
 }
 
 type LiveSigstoreVerifier struct {
-	TrustedRoot  string
-	Logger       *io.Handler
-	NoPublicGood bool
+	TrustedRoot    string
+	Logger         *io.Handler
+	NoPublicGood   bool
+	ChooseVerifier func(issuer string) (SignedEntityVerifier, error)
 	// If tenancy mode is not used, trust domain is empty
 	TrustDomain string
 }
@@ -65,6 +66,9 @@ func NewLiveSigstoreVerifier(config SigstoreConfig) *LiveSigstoreVerifier {
 		Logger:       config.Logger,
 		NoPublicGood: config.NoPublicGood,
 		TrustDomain:  config.TrustDomain,
+		ChooseVerifier: func(issuer string) (SignedEntityVerifier, error) {
+			return ChooseLiveVerifier(config.NoPublicGood, issuer, config.TrustedRoot, config.TrustDomain)
+		},
 	}
 }
 
@@ -86,26 +90,26 @@ func getBundleIssuer(b *bundle.Bundle) (string, error) {
 	return leafCert.Issuer.Organization[0], nil
 }
 
-func (v *LiveSigstoreVerifier) ChooseVerifier(issuer string) (SignedEntityVerifier, error) {
+func ChooseLiveVerifier(noPublicGood bool, issuer, trustedRoot, trustDomain string) (SignedEntityVerifier, error) {
 	// if no custom trusted root is set, attempt to create a Public Good or
 	// GitHub Sigstore verifier
-	if v.TrustedRoot == "" {
+	if trustedRoot == "" {
 		switch issuer {
 		case PublicGoodIssuerOrg:
-			if v.NoPublicGood {
+			if noPublicGood {
 				return nil, fmt.Errorf("detected public good instance but requested verification without public good instance")
 			}
 			return newPublicGoodVerifier()
 		case GitHubIssuerOrg:
-			return newGitHubVerifier(v.TrustDomain)
+			return newGitHubVerifier(trustDomain)
 		default:
 			return nil, fmt.Errorf("leaf certificate issuer is not recognized")
 		}
 	}
 
-	customTrustRoots, err := os.ReadFile(v.TrustedRoot)
+	customTrustRoots, err := os.ReadFile(trustedRoot)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read file %s: %v", v.TrustedRoot, err)
+		return nil, fmt.Errorf("unable to read file %s: %v", trustedRoot, err)
 	}
 
 	reader := bufio.NewReader(bytes.NewReader(customTrustRoots))
@@ -142,7 +146,7 @@ func (v *LiveSigstoreVerifier) ChooseVerifier(issuer string) (SignedEntityVerifi
 			// issuer. We *must* use the trusted root provided.
 			switch issuer {
 			case PublicGoodIssuerOrg:
-				if v.NoPublicGood {
+				if noPublicGood {
 					return nil, fmt.Errorf("detected public good instance but requested verification without public good instance")
 				}
 				return newPublicGoodVerifierWithTrustedRoot(trustedRoot)

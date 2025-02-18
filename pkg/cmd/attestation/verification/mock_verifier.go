@@ -108,22 +108,80 @@ func BuildSigstoreJsMockResult(t *testing.T) AttestationProcessingResult {
 type MockSignedEntityVerifier struct{}
 
 func (v *MockSignedEntityVerifier) Verify(entity verify.SignedEntity, pb verify.PolicyBuilder) (*verify.VerificationResult, error) {
-	return &verify.VerificationResult{}, nil
+	return &verify.VerificationResult{
+		MediaType: "dfsdfsd",
+	}, nil
 }
 
-func newVerifierWithMockEntityVerifier() *VerifierWithMockSignedEntityVerifier {
+type failAfterNCallsVerifier struct {
+	failAfterNCalls int
+	numCalls        int
+}
+
+func (v *failAfterNCallsVerifier) Verify(entity verify.SignedEntity, pb verify.PolicyBuilder) (*verify.VerificationResult, error) {
+	if v.failAfterNCalls == v.numCalls {
+		return nil, fmt.Errorf("sigstore verification failed")
+	}
+	v.numCalls++
+	return &verify.VerificationResult{
+		MediaType: "dfsdfsd",
+	}, nil
+}
+
+type FailSignedEntityVerifier struct{}
+
+func (v *FailSignedEntityVerifier) Verify(entity verify.SignedEntity, pb verify.PolicyBuilder) (*verify.VerificationResult, error) {
+	return nil, fmt.Errorf("failed to verify signed entity")
+}
+
+func newVerifierWithMockEntityVerifier() *LiveSigstoreVerifier {
 	verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 		Logger: io.NewTestHandler(),
 	})
-	return &VerifierWithMockSignedEntityVerifier{
-		LiveSigstoreVerifier: verifier,
+	verifier.ChooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
+		return &MockSignedEntityVerifier{}, nil
 	}
+	return verifier
+}
+
+func newVerifierWithFailEntityVerifier() *LiveSigstoreVerifier {
+	verifier := NewLiveSigstoreVerifier(SigstoreConfig{
+		Logger: io.NewTestHandler(),
+	})
+	verifier.ChooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
+		return &FailSignedEntityVerifier{}, nil
+	}
+	return verifier
+}
+
+func newVerifierWithFailAfterNCallsVerifier(failAfterNCalls int) *LiveSigstoreVerifier {
+	verifier := NewLiveSigstoreVerifier(SigstoreConfig{
+		Logger: io.NewTestHandler(),
+	})
+
+	failVerifier := &failAfterNCallsVerifier{
+		failAfterNCalls: failAfterNCalls,
+	}
+	verifier.ChooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
+		return failVerifier, nil
+	}
+	return verifier
 }
 
 type VerifierWithMockSignedEntityVerifier struct {
-	*LiveSigstoreVerifier
+	LiveSigstoreVerifier
+	//Sev SignedEntityVerifier
 }
 
 func (v *VerifierWithMockSignedEntityVerifier) ChooseVerifier(issuer string) (SignedEntityVerifier, error) {
 	return &MockSignedEntityVerifier{}, nil
+}
+
+type VerifierWithFailSignedEntityVerifier struct {
+	LiveSigstoreVerifier
+	//Sev SignedEntityVerifier
+}
+
+func (v *VerifierWithFailSignedEntityVerifier) ChooseVerifier(issuer string) (SignedEntityVerifier, error) {
+	return &FailSignedEntityVerifier{}, nil
 }
