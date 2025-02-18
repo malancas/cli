@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cli/cli/v2/pkg/cmd/attestation/api"
+	"github.com/cli/cli/v2/pkg/cmd/attestation/io"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/test/data"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/fulcio/certificate"
@@ -18,7 +19,7 @@ type MockSigstoreVerifier struct {
 	mockResults []*AttestationProcessingResult
 }
 
-func (v *MockSigstoreVerifier) Verify([]*api.Attestation, verify.PolicyBuilder) ([]*AttestationProcessingResult, error) {
+func (v *MockSigstoreVerifier) Verify(att []*api.Attestation, _ verify.PolicyBuilder) ([]*AttestationProcessingResult, error) {
 	if v.mockResults != nil {
 		return v.mockResults, nil
 	}
@@ -45,8 +46,10 @@ func (v *MockSigstoreVerifier) Verify([]*api.Attestation, verify.PolicyBuilder) 
 		},
 	}
 
-	results := []*AttestationProcessingResult{&result}
-
+	results := make([]*AttestationProcessingResult, len(att))
+	for i := range att {
+		results[i] = &result
+	}
 	return results, nil
 }
 
@@ -100,4 +103,27 @@ func BuildSigstoreJsMockResult(t *testing.T) AttestationProcessingResult {
 	sourceRepoURI := "https://github.com/sigstore/sigstore-js"
 	issuer := "https://token.actions.githubusercontent.com"
 	return BuildMockResult(bundle, buildConfigURI, buildSignerURI, sourceRepoOwnerURI, sourceRepoURI, issuer)
+}
+
+type MockSignedEntityVerifier struct{}
+
+func (v *MockSignedEntityVerifier) Verify(entity verify.SignedEntity, pb verify.PolicyBuilder) (*verify.VerificationResult, error) {
+	return &verify.VerificationResult{}, nil
+}
+
+func newVerifierWithMockEntityVerifier() *VerifierWithMockSignedEntityVerifier {
+	verifier := NewLiveSigstoreVerifier(SigstoreConfig{
+		Logger: io.NewTestHandler(),
+	})
+	return &VerifierWithMockSignedEntityVerifier{
+		LiveSigstoreVerifier: verifier,
+	}
+}
+
+type VerifierWithMockSignedEntityVerifier struct {
+	*LiveSigstoreVerifier
+}
+
+func (v *VerifierWithMockSignedEntityVerifier) ChooseVerifier(issuer string) (SignedEntityVerifier, error) {
+	return &MockSignedEntityVerifier{}, nil
 }
