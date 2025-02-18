@@ -2,6 +2,7 @@ package verification
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/cli/cli/v2/pkg/cmd/attestation/api"
@@ -114,11 +115,15 @@ func (v *MockSignedEntityVerifier) Verify(entity verify.SignedEntity, pb verify.
 }
 
 type failAfterNCallsVerifier struct {
+	mu              sync.Mutex
 	failAfterNCalls int
 	numCalls        int
 }
 
 func (v *failAfterNCallsVerifier) Verify(entity verify.SignedEntity, pb verify.PolicyBuilder) (*verify.VerificationResult, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
 	if v.failAfterNCalls == v.numCalls {
 		return nil, fmt.Errorf("sigstore verification failed")
 	}
@@ -159,11 +164,11 @@ func newVerifierWithFailAfterNCallsVerifier(failAfterNCalls int) *LiveSigstoreVe
 		Logger: io.NewTestHandler(),
 	})
 
-	failVerifier := &failAfterNCallsVerifier{
+	sev := &failAfterNCallsVerifier{
 		failAfterNCalls: failAfterNCalls,
 	}
 	verifier.chooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
-		return failVerifier, nil
+		return sev, nil
 	}
 	return verifier
 }
