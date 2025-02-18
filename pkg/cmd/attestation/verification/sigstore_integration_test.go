@@ -10,7 +10,6 @@ import (
 	"github.com/cli/cli/v2/pkg/cmd/attestation/io"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/test"
 
-	"github.com/sigstore/sigstore-go/pkg/verify"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,17 +24,17 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 	testcases := []testcase{
 		{
 			name:         "with invalid signature",
-			attestations: getAttestationsFor(t, "../test/data/sigstoreBundle-invalid-signature.json"),
+			attestations: GetAttestationsFor(t, "../test/data/sigstoreBundle-invalid-signature.json"),
 			expectErr:    true,
 			errContains:  "verifying with issuer \"sigstore.dev\"",
 		},
 		{
 			name:         "with valid artifact and JSON lines file containing multiple Sigstore bundles",
-			attestations: getAttestationsFor(t, "../test/data/sigstore-js-2.1.0_with_2_bundles.jsonl"),
+			attestations: GetAttestationsFor(t, "../test/data/sigstore-js-2.1.0_with_2_bundles.jsonl"),
 		},
 		{
 			name:         "with invalid bundle version",
-			attestations: getAttestationsFor(t, "../test/data/sigstore-js-2.1.0-bundle-v0.1.json"),
+			attestations: GetAttestationsFor(t, "../test/data/sigstore-js-2.1.0-bundle-v0.1.json"),
 			expectErr:    true,
 			errContains:  "unsupported bundle version",
 		},
@@ -53,7 +52,7 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 				Logger: io.NewTestHandler(),
 			})
 
-			results, err := verifier.Verify(tc.attestations, publicGoodPolicy(t))
+			results, err := verifier.Verify(tc.attestations, PublicGoodPolicy(t))
 
 			if tc.expectErr {
 				require.Error(t, err)
@@ -71,12 +70,12 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 			Logger: io.NewTestHandler(),
 		})
 
-		invalidBundle := getAttestationsFor(t, "../test/data/sigstore-js-2.1.0-bundle-v0.1.json")
-		attestations := getAttestationsFor(t, "../test/data/sigstore-js-2.1.0_with_2_bundles.jsonl")
+		invalidBundle := GetAttestationsFor(t, "../test/data/sigstore-js-2.1.0-bundle-v0.1.json")
+		attestations := GetAttestationsFor(t, "../test/data/sigstore-js-2.1.0_with_2_bundles.jsonl")
 		attestations = append(attestations, invalidBundle[0])
 		require.Len(t, attestations, 3)
 
-		results, err := verifier.Verify(attestations, publicGoodPolicy(t))
+		results, err := verifier.Verify(attestations, PublicGoodPolicy(t))
 
 		require.Len(t, results, 2)
 		require.NoError(t, err)
@@ -87,12 +86,12 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 			Logger: io.NewTestHandler(),
 		})
 
-		invalidBundle := getAttestationsFor(t, "../test/data/sigstore-js-2.1.0-bundle-v0.1.json")
-		attestations := getAttestationsFor(t, "../test/data/sigstoreBundle-invalid-signature.json")
+		invalidBundle := GetAttestationsFor(t, "../test/data/sigstore-js-2.1.0-bundle-v0.1.json")
+		attestations := GetAttestationsFor(t, "../test/data/sigstoreBundle-invalid-signature.json")
 		attestations = append(attestations, invalidBundle[0])
 		require.Len(t, attestations, 2)
 
-		results, err := verifier.Verify(attestations, publicGoodPolicy(t))
+		results, err := verifier.Verify(attestations, PublicGoodPolicy(t))
 		require.Nil(t, results)
 		require.Error(t, err)
 	})
@@ -102,9 +101,9 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 		githubArtifact, err := artifact.NewDigestedArtifact(nil, githubArtifactPath, "sha256")
 		require.NoError(t, err)
 
-		githubPolicy := buildPolicy(t, *githubArtifact)
+		githubPolicy := BuildPolicy(t, *githubArtifact)
 
-		attestations := getAttestationsFor(t, "../test/data/github_provenance_demo-0.0.12-py3-none-any-bundle.jsonl")
+		attestations := GetAttestationsFor(t, "../test/data/github_provenance_demo-0.0.12-py3-none-any-bundle.jsonl")
 
 		verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 			Logger: io.NewTestHandler(),
@@ -116,43 +115,15 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 	})
 
 	t.Run("with custom trusted root", func(t *testing.T) {
-		attestations := getAttestationsFor(t, "../test/data/sigstore-js-2.1.0_with_2_bundles.jsonl")
+		attestations := GetAttestationsFor(t, "../test/data/sigstore-js-2.1.0_with_2_bundles.jsonl")
 
 		verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 			Logger:      io.NewTestHandler(),
 			TrustedRoot: test.NormalizeRelativePath("../test/data/trusted_root.json"),
 		})
 
-		results, err := verifier.Verify(attestations, publicGoodPolicy(t))
+		results, err := verifier.Verify(attestations, PublicGoodPolicy(t))
 		require.Len(t, results, 2)
 		require.NoError(t, err)
 	})
-}
-
-func publicGoodPolicy(t *testing.T) verify.PolicyBuilder {
-	t.Helper()
-
-	artifactPath := test.NormalizeRelativePath("../test/data/sigstore-js-2.1.0.tgz")
-	publicGoodArtifact, err := artifact.NewDigestedArtifact(nil, artifactPath, "sha512")
-	require.NoError(t, err)
-
-	return buildPolicy(t, *publicGoodArtifact)
-}
-
-func buildPolicy(t *testing.T, artifact artifact.DigestedArtifact) verify.PolicyBuilder {
-	t.Helper()
-
-	artifactDigestPolicyOption, err := BuildDigestPolicyOption(artifact)
-	require.NoError(t, err)
-
-	return verify.NewPolicy(artifactDigestPolicyOption, verify.WithoutIdentitiesUnsafe())
-}
-
-func getAttestationsFor(t *testing.T, bundlePath string) []*api.Attestation {
-	t.Helper()
-
-	attestations, err := GetLocalAttestations(bundlePath)
-	require.NoError(t, err)
-
-	return attestations
 }
