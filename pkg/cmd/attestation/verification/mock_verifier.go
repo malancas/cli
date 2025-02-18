@@ -138,7 +138,7 @@ func newVerifierWithMockEntityVerifier() *LiveSigstoreVerifier {
 	verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 		Logger: io.NewTestHandler(),
 	})
-	verifier.ChooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
+	verifier.chooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
 		return &MockSignedEntityVerifier{}, nil
 	}
 	return verifier
@@ -148,7 +148,7 @@ func newVerifierWithFailEntityVerifier() *LiveSigstoreVerifier {
 	verifier := NewLiveSigstoreVerifier(SigstoreConfig{
 		Logger: io.NewTestHandler(),
 	})
-	verifier.ChooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
+	verifier.chooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
 		return &FailSignedEntityVerifier{}, nil
 	}
 	return verifier
@@ -162,7 +162,7 @@ func newVerifierWithFailAfterNCallsVerifier(failAfterNCalls int) *LiveSigstoreVe
 	failVerifier := &failAfterNCallsVerifier{
 		failAfterNCalls: failAfterNCalls,
 	}
-	verifier.ChooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
+	verifier.chooseVerifier = func(issuer string) (SignedEntityVerifier, error) {
 		return failVerifier, nil
 	}
 	return verifier

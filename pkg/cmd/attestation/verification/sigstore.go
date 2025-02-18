@@ -50,7 +50,7 @@ type LiveSigstoreVerifier struct {
 	TrustedRoot    string
 	Logger         *io.Handler
 	NoPublicGood   bool
-	ChooseVerifier func(issuer string) (SignedEntityVerifier, error)
+	chooseVerifier func(issuer string) (SignedEntityVerifier, error)
 	// If tenancy mode is not used, trust domain is empty
 	TrustDomain string
 }
@@ -66,8 +66,8 @@ func NewLiveSigstoreVerifier(config SigstoreConfig) *LiveSigstoreVerifier {
 		Logger:       config.Logger,
 		NoPublicGood: config.NoPublicGood,
 		TrustDomain:  config.TrustDomain,
-		ChooseVerifier: func(issuer string) (SignedEntityVerifier, error) {
-			return ChooseLiveVerifier(config.NoPublicGood, issuer, config.TrustedRoot, config.TrustDomain)
+		chooseVerifier: func(issuer string) (SignedEntityVerifier, error) {
+			return chooseLiveVerifier(config.NoPublicGood, issuer, config.TrustedRoot, config.TrustDomain)
 		},
 	}
 }
@@ -90,7 +90,7 @@ func getBundleIssuer(b *bundle.Bundle) (string, error) {
 	return leafCert.Issuer.Organization[0], nil
 }
 
-func ChooseLiveVerifier(noPublicGood bool, issuer, trustedRoot, trustDomain string) (SignedEntityVerifier, error) {
+func chooseLiveVerifier(noPublicGood bool, issuer, trustedRoot, trustDomain string) (SignedEntityVerifier, error) {
 	// if no custom trusted root is set, attempt to create a Public Good or
 	// GitHub Sigstore verifier
 	if trustedRoot == "" {
@@ -180,7 +180,7 @@ func (v *LiveSigstoreVerifier) verify(attestation *api.Attestation, policy verif
 	}
 
 	// determine which verifier should attempt verification against the bundle
-	verifier, err := v.ChooseVerifier(issuer)
+	verifier, err := v.chooseVerifier(issuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find recognized issuer from bundle content: %v", err)
 	}
