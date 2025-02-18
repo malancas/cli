@@ -124,7 +124,7 @@ func (v *failAfterNCallsVerifier) Verify(entity verify.SignedEntity, pb verify.P
 	}
 	v.numCalls++
 	return &verify.VerificationResult{
-		MediaType: "dfsdfsd",
+		MediaType: "application/vnd.dev.sigstore.bundle+json;version=0.2",
 	}, nil
 }
 
@@ -166,22 +166,4 @@ func newVerifierWithFailAfterNCallsVerifier(failAfterNCalls int) *LiveSigstoreVe
 		return failVerifier, nil
 	}
 	return verifier
-}
-
-type VerifierWithMockSignedEntityVerifier struct {
-	LiveSigstoreVerifier
-	//Sev SignedEntityVerifier
-}
-
-func (v *VerifierWithMockSignedEntityVerifier) ChooseVerifier(issuer string) (SignedEntityVerifier, error) {
-	return &MockSignedEntityVerifier{}, nil
-}
-
-type VerifierWithFailSignedEntityVerifier struct {
-	LiveSigstoreVerifier
-	//Sev SignedEntityVerifier
-}
-
-func (v *VerifierWithFailSignedEntityVerifier) ChooseVerifier(issuer string) (SignedEntityVerifier, error) {
-	return &FailSignedEntityVerifier{}, nil
 }
