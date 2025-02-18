@@ -47,9 +47,12 @@ type SigstoreVerifier interface {
 }
 
 type LiveSigstoreVerifier struct {
-	TrustedRoot    string
-	Logger         *io.Handler
-	NoPublicGood   bool
+	TrustedRoot  string
+	Logger       *io.Handler
+	NoPublicGood bool
+	// because the signed entity verifier is determined for individual
+	// attestations, we need to be able to switch out the verifier
+	// for testing every time an attestation is verified
 	chooseVerifier func(issuer string) (SignedEntityVerifier, error)
 	// If tenancy mode is not used, trust domain is empty
 	TrustDomain string
