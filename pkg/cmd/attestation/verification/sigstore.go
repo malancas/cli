@@ -36,6 +36,8 @@ type SigstoreConfig struct {
 	TrustDomain string
 }
 
+// SignedEntityVerifier is an interface for verifying individual attestations
+// against a trusted root
 type SignedEntityVerifier interface {
 	Verify(entity verify.SignedEntity, pb verify.PolicyBuilder) (*verify.VerificationResult, error)
 }
