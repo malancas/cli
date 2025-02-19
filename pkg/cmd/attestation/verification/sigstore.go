@@ -47,15 +47,11 @@ type SigstoreVerifier interface {
 }
 
 type LiveSigstoreVerifier struct {
-	TrustedRoot  string
-	Logger       *io.Handler
-	NoPublicGood bool
+	Logger *io.Handler
 	// because the signed entity verifier is determined for individual
 	// attestations, we need to be able to switch out the verifier
 	// for testing every time an attestation is verified
 	chooseVerifier func(issuer string) (SignedEntityVerifier, error)
-	// If tenancy mode is not used, trust domain is empty
-	TrustDomain string
 }
 
 var ErrNoAttestationsVerified = errors.New("no attestations were verified")
@@ -65,10 +61,7 @@ var ErrNoAttestationsVerified = errors.New("no attestations were verified")
 // Public Good, GitHub, or a custom trusted root.
 func NewLiveSigstoreVerifier(config SigstoreConfig) *LiveSigstoreVerifier {
 	return &LiveSigstoreVerifier{
-		TrustedRoot:  config.TrustedRoot,
-		Logger:       config.Logger,
-		NoPublicGood: config.NoPublicGood,
-		TrustDomain:  config.TrustDomain,
+		Logger: config.Logger,
 		chooseVerifier: func(issuer string) (SignedEntityVerifier, error) {
 			return chooseLiveVerifier(config.NoPublicGood, issuer, config.TrustedRoot, config.TrustDomain)
 		},
