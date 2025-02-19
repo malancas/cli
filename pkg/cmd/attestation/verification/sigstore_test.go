@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/cli/cli/v2/pkg/cmd/attestation/api"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,8 +17,8 @@ func TestSigstoreVerifier(t *testing.T) {
 		require.Len(t, attestations, 3)
 
 		results, err := verifier.Verify(attestations, PublicGoodPolicy(t))
-		assert.NoError(t, err)
-		assert.Len(t, results, 2)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
 	})
 
 	t.Run("with 2/3 verified attestations - sigstore verification failed", func(t *testing.T) {
@@ -30,8 +29,8 @@ func TestSigstoreVerifier(t *testing.T) {
 		require.Len(t, attestations, 3)
 
 		results, err := verifier.Verify(attestations, PublicGoodPolicy(t))
-		assert.NoError(t, err)
-		assert.Len(t, results, 2)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
 	})
 
 	t.Run("fail with 0/2 verified attestations", func(t *testing.T) {
@@ -41,7 +40,7 @@ func TestSigstoreVerifier(t *testing.T) {
 		require.Len(t, attestations, 2)
 
 		results, err := verifier.Verify(attestations, PublicGoodPolicy(t))
-		assert.Error(t, err)
-		assert.Nil(t, results)
+		require.Error(t, err)
+		require.Nil(t, results)
 	})
 }
