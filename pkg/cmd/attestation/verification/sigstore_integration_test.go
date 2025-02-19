@@ -81,9 +81,7 @@ func TestLiveSigstoreVerifier(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, results, 2)
 		assert.Equal(t, results[0].Attestation, attestations[0])
-		assert.Equal(t, results[1].Attestation, attestations[0])
 		assert.Equal(t, results[1].Attestation, attestations[1])
-		assert.Equal(t, results[0].Attestation, attestations[1])
 	})
 
 	t.Run("fail with 0/2 verified attestations", func(t *testing.T) {

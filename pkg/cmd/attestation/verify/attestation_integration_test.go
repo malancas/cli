@@ -11,6 +11,7 @@ import (
 	"github.com/cli/cli/v2/pkg/cmd/attestation/test"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/verification"
 	"github.com/sigstore/sigstore-go/pkg/fulcio/certificate"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,9 +49,11 @@ func TestVerifyAttestations(t *testing.T) {
 		attestations := getAttestationsFor(t, "../test/data/sigstore-js-2.1.0_with_2_bundles.jsonl")
 		require.Len(t, attestations, 2)
 		results, errMsg, err := verifyAttestations(*a, attestations, sgVerifier, ec)
-		require.NoError(t, err)
-		require.Zero(t, errMsg)
-		require.Len(t, results, 2)
+		assert.NoError(t, err)
+		assert.Zero(t, errMsg)
+		assert.Len(t, results, 2)
+		assert.Equal(t, results[0].Attestation, attestations[0])
+		assert.Equal(t, results[1].Attestation, attestations[1])
 	})
 
 	t.Run("passes verification with 2/3 attestations passing Sigstore verification", func(t *testing.T) {
@@ -60,9 +63,11 @@ func TestVerifyAttestations(t *testing.T) {
 		require.Len(t, attestations, 3)
 
 		results, errMsg, err := verifyAttestations(*a, attestations, sgVerifier, ec)
-		require.NoError(t, err)
-		require.Zero(t, errMsg)
-		require.Len(t, results, 2)
+		assert.NoError(t, err)
+		assert.Zero(t, errMsg)
+		assert.Len(t, results, 2)
+		assert.Equal(t, results[0].Attestation, attestations[0])
+		assert.Equal(t, results[1].Attestation, attestations[1])
 	})
 
 	t.Run("fails verification when Sigstore verification fails", func(t *testing.T) {
