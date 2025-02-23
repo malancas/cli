@@ -89,7 +89,7 @@ func (a *noncompliantRegistryTransport) RoundTrip(req *http.Request) (*http.Resp
 		resp.StatusCode = http.StatusNotFound
 	}
 
-	return resp, err
+	return resp, nil
 }
 
 func (c LiveClient) GetAttestations(ref name.Reference, digest string) ([]*api.Attestation, error) {
