@@ -63,10 +63,6 @@ func newEnforcementCriteria(opts *Options) (verification.EnforcementCriteria, er
 
 		workflowRegex := fmt.Sprintf("^%s", validatedWorkflow)
 		c.SANRegex = workflowRegex
-
-		if opts.SignerRef != "" {
-			c.Certificate.BuildSignerURI = fmt.Sprintf("%s@%s", validatedWorkflow, opts.SignerRef)
-		}
 	} else if opts.Repo != "" {
 		// if the user has not provided the SAN, SANRegex, SignerRepo, or SignerWorkflow options
 		// then we default to the repo option

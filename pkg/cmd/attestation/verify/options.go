@@ -32,7 +32,6 @@ type Options struct {
 	SAN                   string
 	SANRegex              string
 	SignerDigest          string
-	SignerRef             string
 	SignerRepo            string
 	SignerWorkflow        string
 	SourceDigest          string

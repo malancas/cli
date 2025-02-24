@@ -65,9 +65,6 @@ func (c EnforcementCriteria) BuildPolicyInformation() string {
 	if c.Certificate.BuildSignerDigest != "" {
 		policyAttr = appendStr(policyAttr, "- Build signer digest must match", c.Certificate.BuildSignerDigest)
 	}
-	if c.Certificate.BuildSignerURI != "" {
-		policyAttr = appendStr(policyAttr, "- Build signer URI must match", c.Certificate.BuildSignerURI)
-	}
 	if c.Certificate.SourceRepositoryDigest != "" {
 		policyAttr = appendStr(policyAttr, "- Source repo digest digest must match", c.Certificate.SourceRepositoryDigest)
 	}
