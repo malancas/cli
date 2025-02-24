@@ -56,13 +56,11 @@ func newEnforcementCriteria(opts *Options) (verification.EnforcementCriteria, er
 		signedRepoRegex := expandToGitHubURLRegex(opts.Tenant, opts.SignerRepo)
 		c.SANRegex = signedRepoRegex
 	} else if opts.SignerWorkflow != "" {
-		validatedWorkflow, err := validateSignerWorkflow(opts.Hostname, opts.SignerWorkflow)
+		validatedWorkflowRegex, err := validateSignerWorkflow(opts.Hostname, opts.SignerWorkflow)
 		if err != nil {
 			return verification.EnforcementCriteria{}, err
 		}
-
-		workflowRegex := fmt.Sprintf("^%s", validatedWorkflow)
-		c.SANRegex = workflowRegex
+		c.SANRegex = validatedWorkflowRegex
 	} else if opts.Repo != "" {
 		// if the user has not provided the SAN, SANRegex, SignerRepo, or SignerWorkflow options
 		// then we default to the repo option
@@ -157,7 +155,7 @@ func validateSignerWorkflow(hostname, signerWorkflow string) (string, error) {
 	}
 
 	if match {
-		return fmt.Sprintf("https://%s", signerWorkflow), nil
+		return fmt.Sprintf("^https://%s", signerWorkflow), nil
 	}
 
 	// if the provided workflow did not match the expect format
@@ -166,5 +164,5 @@ func validateSignerWorkflow(hostname, signerWorkflow string) (string, error) {
 		return "", errors.New("unknown host")
 	}
 
-	return fmt.Sprintf("https://%s/%s", hostname, signerWorkflow), nil
+	return fmt.Sprintf("^https://%s/%s", hostname, signerWorkflow), nil
 }
