@@ -72,7 +72,7 @@ func NewCmdLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.Comm
 			The minimum required scopes for the token are: %[1]srepo%[1]s, %[1]sread:org%[1]s, and %[1]sgist%[1]s.
 			Take care when passing a fine-grained personal access token to %[1]s--with-token%[1]s
 			as the inherent scoping to certain resources may cause confusing behaviour when interacting with other
-			resources. Favour setting %[1]sGH_TOKEN$%[1]s for fine-grained personal access token usage. 
+			resources. Favour setting %[1]sGH_TOKEN$%[1]s for fine-grained personal access token usage.
 
 			Alternatively, gh will use the authentication token found in environment variables.
 			This method is most suitable for "headless" use of gh such as in automation. See
@@ -94,7 +94,7 @@ func NewCmdLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.Comm
 			# Start interactive setup
 			$ gh auth login
 
-			# Authenticate against github.com by reading the token from a file
+			# Authenticate against <github.com> by reading the token from a file
 			$ gh auth login --with-token < mytoken.txt
 
 			# Authenticate with specific host

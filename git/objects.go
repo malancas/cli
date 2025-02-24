@@ -60,10 +60,14 @@ type Commit struct {
 	Body  string
 }
 
+// These are the keys we read from the git branch.<name> config.
 type BranchConfig struct {
-	RemoteName string
-	RemoteURL  *url.URL
+	RemoteName     string   // .remote if string
+	RemoteURL      *url.URL // .remote if url
+	MergeRef       string   // .merge
+	PushRemoteName string   // .pushremote if string
+	PushRemoteURL  *url.URL // .pushremote if url
+
 	// MergeBase is the optional base branch to target in a new PR if `--base` is not specified.
 	MergeBase string
-	MergeRef  string
 }

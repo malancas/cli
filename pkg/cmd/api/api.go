@@ -201,12 +201,12 @@ func NewCmdApi(f *cmdutil.Factory, runF func(*ApiOptions) error) *cobra.Command 
 		Annotations: map[string]string{
 			"help:environment": heredoc.Doc(`
 				GH_TOKEN, GITHUB_TOKEN (in order of precedence): an authentication token for
-				github.com API requests.
+				<github.com> API requests.
 
 				GH_ENTERPRISE_TOKEN, GITHUB_ENTERPRISE_TOKEN (in order of precedence): an
 				authentication token for API requests to GitHub Enterprise.
 
-				GH_HOST: make the request to a GitHub host other than github.com.
+				GH_HOST: make the request to a GitHub host other than <github.com>.
 			`),
 		},
 		Args: cobra.ExactArgs(1),
@@ -239,17 +239,19 @@ func NewCmdApi(f *cmdutil.Factory, runF func(*ApiOptions) error) *cobra.Command 
 				return err
 			}
 
-			if opts.Slurp && !opts.Paginate {
-				return cmdutil.FlagErrorf("`--paginate` required when passing `--slurp`")
-			}
+			if opts.Slurp {
+				if err := cmdutil.MutuallyExclusive(
+					"the `--slurp` option is not supported with `--jq` or `--template`",
+					opts.Slurp,
+					opts.FilterOutput != "",
+					opts.Template != "",
+				); err != nil {
+					return err
+				}
 
-			if err := cmdutil.MutuallyExclusive(
-				"the `--slurp` option is not supported with `--jq` or `--template`",
-				opts.Slurp,
-				opts.FilterOutput != "",
-				opts.Template != "",
-			); err != nil {
-				return err
+				if !opts.Paginate {
+					return cmdutil.FlagErrorf("`--paginate` required when passing `--slurp`")
+				}
 			}
 
 			if err := cmdutil.MutuallyExclusive(
@@ -461,9 +463,11 @@ func processResponse(resp *http.Response, opts *ApiOptions, bodyWriter, headersW
 
 	var serverError string
 	if isJSON && (opts.RequestPath == "graphql" || resp.StatusCode >= 400) {
-		responseBody, serverError, err = parseErrorResponse(responseBody, resp.StatusCode)
-		if err != nil {
-			return
+		if !strings.EqualFold(opts.RequestMethod, "HEAD") {
+			responseBody, serverError, err = parseErrorResponse(responseBody, resp.StatusCode)
+			if err != nil {
+				return
+			}
 		}
 	}
 

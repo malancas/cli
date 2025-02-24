@@ -69,7 +69,7 @@ func NewCmdBrowse(f *cmdutil.Factory, runF func(*BrowseOptions) error) *cobra.Co
 			- Repository home page
 			- Repository settings
 		`),
-		Use:  "browse [<number> | <path> | <commit-SHA>]",
+		Use:  "browse [<number> | <path> | <commit-sha>]",
 		Args: cobra.MaximumNArgs(1),
 		Example: heredoc.Doc(`
 			$ gh browse

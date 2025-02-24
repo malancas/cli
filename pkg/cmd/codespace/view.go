@@ -30,7 +30,7 @@ func newViewCmd(app *App) *cobra.Command {
 		Short: "View details about a codespace",
 		Example: heredoc.Doc(`
 			# select a codespace from a list of all codespaces you own
-			$ gh cs view	
+			$ gh cs view
 
 			# view the details of a specific codespace
 			$ gh cs view -c codespace-name-12345

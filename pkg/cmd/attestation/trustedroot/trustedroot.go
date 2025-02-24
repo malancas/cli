@@ -11,6 +11,7 @@ import (
 	"github.com/cli/cli/v2/pkg/cmd/attestation/io"
 	"github.com/cli/cli/v2/pkg/cmd/attestation/verification"
 	"github.com/cli/cli/v2/pkg/cmdutil"
+	o "github.com/cli/cli/v2/pkg/option"
 	ghauth "github.com/cli/go-gh/v2/pkg/auth"
 
 	"github.com/MakeNowJust/heredoc"
@@ -121,7 +122,7 @@ func getTrustedRoot(makeTUF tufClientInstantiator, opts *Options) error {
 	var tufOptions []tufConfig
 	var defaultTR = "trusted_root.json"
 
-	tufOpt := verification.DefaultOptionsWithCacheSetting()
+	tufOpt := verification.DefaultOptionsWithCacheSetting(o.None[string]())
 	// Disable local caching, so we get up-to-date response from TUF repository
 	tufOpt.CacheValidity = 0
 
@@ -150,7 +151,7 @@ func getTrustedRoot(makeTUF tufClientInstantiator, opts *Options) error {
 			targets:    []string{defaultTR},
 		})
 
-		tufOpt = verification.GitHubTUFOptions()
+		tufOpt = verification.GitHubTUFOptions(o.None[string]())
 		tufOpt.CacheValidity = 0
 		tufOptions = append(tufOptions, tufConfig{
 			tufOptions: tufOpt,

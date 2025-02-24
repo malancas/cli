@@ -34,7 +34,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
 		Short: "View an available repository gitignore template",
 		Long: heredoc.Docf(`
 			View an available repository %[1]s.gitignore%[1]s template.
-			
+
 			%[1]s<template>%[1]s is a case-sensitive %[1]s.gitignore%[1]s template name.
 
 			For a list of available templates, run %[1]sgh repo gitignore list%[1]s.

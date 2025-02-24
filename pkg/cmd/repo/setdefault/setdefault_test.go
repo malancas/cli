@@ -176,7 +176,7 @@ func TestDefaultRun(t *testing.T) {
 					Repo:   repo1,
 				},
 			},
-			wantStderr: "no default repository has been set; use `gh repo set-default` to select one\n",
+			wantStderr: "X No default remote repository has been set. To learn more about the default repository, run: gh repo set-default --help\n",
 		},
 		{
 			name: "view mode no current default",
@@ -188,7 +188,7 @@ func TestDefaultRun(t *testing.T) {
 					Repo:   repo1,
 				},
 			},
-			wantStderr: "no default repository has been set; use `gh repo set-default` to select one\n",
+			wantStderr: "X No default remote repository has been set. To learn more about the default repository, run: gh repo set-default --help\n",
 		},
 		{
 			name: "view mode with base resolved current default",

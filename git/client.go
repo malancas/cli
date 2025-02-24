@@ -376,20 +376,20 @@ func (c *Client) lookupCommit(ctx context.Context, sha, format string) ([]byte, 
 	return out, nil
 }
 
-// ReadBranchConfig parses the `branch.BRANCH.(remote|merge|gh-merge-base)` part of git config.
+// ReadBranchConfig parses the `branch.BRANCH.(remote|merge|pushremote|gh-merge-base)` part of git config.
 // If no branch config is found or there is an error in the command, it returns an empty BranchConfig.
 // Downstream consumers of ReadBranchConfig should consider the behavior they desire if this errors,
 // as an empty config is not necessarily breaking.
 func (c *Client) ReadBranchConfig(ctx context.Context, branch string) (BranchConfig, error) {
 
 	prefix := regexp.QuoteMeta(fmt.Sprintf("branch.%s.", branch))
-	args := []string{"config", "--get-regexp", fmt.Sprintf("^%s(remote|merge|%s)$", prefix, MergeBaseConfig)}
+	args := []string{"config", "--get-regexp", fmt.Sprintf("^%s(remote|merge|pushremote|%s)$", prefix, MergeBaseConfig)}
 	cmd, err := c.Command(ctx, args...)
 	if err != nil {
 		return BranchConfig{}, err
 	}
 
-	out, err := cmd.Output()
+	branchCfgOut, err := cmd.Output()
 	if err != nil {
 		// This is the error we expect if the git command does not run successfully.
 		// If the ExitCode is 1, then we just didn't find any config for the branch.
@@ -400,13 +400,14 @@ func (c *Client) ReadBranchConfig(ctx context.Context, branch string) (BranchCon
 		return BranchConfig{}, nil
 	}
 
-	return parseBranchConfig(outputLines(out)), nil
+	return parseBranchConfig(outputLines(branchCfgOut)), nil
 }
 
-func parseBranchConfig(configLines []string) BranchConfig {
+func parseBranchConfig(branchConfigLines []string) BranchConfig {
 	var cfg BranchConfig
 
-	for _, line := range configLines {
+	// Read the config lines for the specific branch
+	for _, line := range branchConfigLines {
 		parts := strings.SplitN(line, " ", 2)
 		if len(parts) < 2 {
 			continue
@@ -414,21 +415,16 @@ func parseBranchConfig(configLines []string) BranchConfig {
 		keys := strings.Split(parts[0], ".")
 		switch keys[len(keys)-1] {
 		case "remote":
-			if strings.Contains(parts[1], ":") {
-				u, err := ParseURL(parts[1])
-				if err != nil {
-					continue
-				}
-				cfg.RemoteURL = u
-			} else if !isFilesystemPath(parts[1]) {
-				cfg.RemoteName = parts[1]
-			}
+			cfg.RemoteURL, cfg.RemoteName = parseRemoteURLOrName(parts[1])
+		case "pushremote":
+			cfg.PushRemoteURL, cfg.PushRemoteName = parseRemoteURLOrName(parts[1])
 		case "merge":
 			cfg.MergeRef = parts[1]
 		case MergeBaseConfig:
 			cfg.MergeBase = parts[1]
 		}
 	}
+
 	return cfg
 }
 
@@ -443,6 +439,47 @@ func (c *Client) SetBranchConfig(ctx context.Context, branch, name, value string
 	// No output expected but check for any printed git error.
 	_, err = cmd.Output()
 	return err
+}
+
+// PushDefault returns the value of push.default in the config. If the value
+// is not set, it returns "simple" (the default git value). See
+// https://git-scm.com/docs/git-config#Documentation/git-config.txt-pushdefault
+func (c *Client) PushDefault(ctx context.Context) (string, error) {
+	pushDefault, err := c.Config(ctx, "push.default")
+	if err == nil {
+		return pushDefault, nil
+	}
+
+	var gitError *GitError
+	if ok := errors.As(err, &gitError); ok && gitError.ExitCode == 1 {
+		return "simple", nil
+	}
+	return "", err
+}
+
+// RemotePushDefault returns the value of remote.pushDefault in the config. If
+// the value is not set, it returns an empty string.
+func (c *Client) RemotePushDefault(ctx context.Context) (string, error) {
+	remotePushDefault, err := c.Config(ctx, "remote.pushDefault")
+	if err == nil {
+		return remotePushDefault, nil
+	}
+
+	var gitError *GitError
+	if ok := errors.As(err, &gitError); ok && gitError.ExitCode == 1 {
+		return "", nil
+	}
+
+	return "", err
+}
+
+// ParsePushRevision gets the value of the @{push} revision syntax
+// An error here doesn't necessarily mean something is broken, but may mean that the @{push}
+// revision syntax couldn't be resolved, such as in non-centralized workflows with
+// push.default = simple. Downstream consumers should consider how to handle this error.
+func (c *Client) ParsePushRevision(ctx context.Context, branch string) (string, error) {
+	revParseOut, err := c.revParse(ctx, "--abbrev-ref", branch+"@{push}")
+	return firstLine(revParseOut), err
 }
 
 func (c *Client) DeleteLocalTag(ctx context.Context, tag string) error {
@@ -788,6 +825,17 @@ func parseRemotes(remotesStr []string) RemoteSet {
 		}
 	}
 	return remotes
+}
+
+func parseRemoteURLOrName(value string) (*url.URL, string) {
+	if strings.Contains(value, ":") {
+		if u, err := ParseURL(value); err == nil {
+			return u, ""
+		}
+	} else if !isFilesystemPath(value) {
+		return nil, value
+	}
+	return nil, ""
 }
 
 func populateResolvedRemotes(remotes RemoteSet, resolved []string) {
