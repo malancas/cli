@@ -280,25 +280,25 @@ func TestValidateSignerWorkflow(t *testing.T) {
 		{
 			name:                   "workflow with default host",
 			providedSignerWorkflow: "github/artifact-attestations-workflows/.github/workflows/attest.yml",
-			expectedWorkflowRegex:  "https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
+			expectedWorkflowRegex:  "^https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
 			host:                   "github.com",
 		},
 		{
 			name:                   "workflow with workflow URL included",
 			providedSignerWorkflow: "github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
-			expectedWorkflowRegex:  "https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
+			expectedWorkflowRegex:  "^https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
 			host:                   "github.com",
 		},
 		{
 			name:                   "workflow with GH_HOST set",
 			providedSignerWorkflow: "github/artifact-attestations-workflows/.github/workflows/attest.yml",
-			expectedWorkflowRegex:  "https://myhost.github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
+			expectedWorkflowRegex:  "^https://myhost.github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
 			host:                   "myhost.github.com",
 		},
 		{
 			name:                   "workflow with authenticated host",
 			providedSignerWorkflow: "github/artifact-attestations-workflows/.github/workflows/attest.yml",
-			expectedWorkflowRegex:  "https://authedhost.github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
+			expectedWorkflowRegex:  "^https://authedhost.github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml",
 			host:                   "authedhost.github.com",
 		},
 	}
