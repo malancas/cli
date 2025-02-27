@@ -57,7 +57,7 @@ func NewTrustedRootCmd(f *cmdutil.Factory, runF func(*Options) error) *cobra.Com
 		`, "`"),
 		Example: heredoc.Doc(`
 			# Get a trusted_root.jsonl for both Sigstore Public Good and GitHub's instance
-			gh attestation trusted-root
+			$ gh attestation trusted-root
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if opts.Hostname == "" {
