@@ -88,7 +88,8 @@ func NewCmdLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.Comm
 			prompting to create and upload a new key if one is not found. This can be skipped with
 			%[1]s--skip-ssh-key%[1]s flag.
 
-			For more information on OAuth scopes, <https://docs.github.com/en/developers/apps/building-oauth-apps/scopes-for-oauth-apps/>.
+			For more information on OAuth scopes, see
+			<https://docs.github.com/en/developers/apps/building-oauth-apps/scopes-for-oauth-apps/>.
 		`, "`"),
 		Example: heredoc.Doc(`
 			# Start interactive setup
