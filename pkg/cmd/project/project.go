@@ -32,10 +32,9 @@ func NewCmdProject(f *cmdutil.Factory) *cobra.Command {
 		Long: heredoc.Docf(`
 			Work with GitHub Projects.
 
-			Note that the token you are using must have 'project' scope,
-			which is not set by default. You can verify your token scope
-			by running 'gh auth status' and add the project scope by
-			running %[1]sgh auth refresh -s project%[1]s.
+			The minimum required scope for the token is: %[1]sproject%[1]s.
+			You can verify your token scope by running %[1]sgh auth status%[1]s and
+			add the %[1]sproject%[1]s scope by running %[1]sgh auth refresh -s project%[1]s.
 		`, "`"),
 		Example: heredoc.Doc(`
 			$ gh project create --owner monalisa --title "Roadmap"
