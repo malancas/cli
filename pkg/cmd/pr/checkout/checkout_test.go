@@ -23,7 +23,86 @@ import (
 	"github.com/cli/cli/v2/test"
 	"github.com/google/shlex"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestNewCmdCheckout(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      string
+		wantsOpts CheckoutOptions
+		wantErr   error
+	}{
+		{
+			name: "recurse submodules",
+			args: "--recurse-submodules 123",
+			wantsOpts: CheckoutOptions{
+				RecurseSubmodules: true,
+			},
+		},
+		{
+			name: "force",
+			args: "--force 123",
+			wantsOpts: CheckoutOptions{
+				Force: true,
+			},
+		},
+		{
+			name: "detach",
+			args: "--detach 123",
+			wantsOpts: CheckoutOptions{
+				Detach: true,
+			},
+		},
+		{
+			name: "branch",
+			args: "--branch test-branch 123",
+			wantsOpts: CheckoutOptions{
+				BranchName: "test-branch",
+			},
+		},
+		{
+			name:    "when there is no selector and no TTY, returns an error",
+			args:    "",
+			wantErr: cmdutil.FlagErrorf("pull request number, URL, or branch required when not running interactively"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ios, _, _, _ := iostreams.Test()
+			f := &cmdutil.Factory{
+				IOStreams: ios,
+			}
+
+			ios.SetStdinTTY(false)
+
+			argv, err := shlex.Split(tt.args)
+			assert.NoError(t, err)
+
+			var spiedOpts *CheckoutOptions
+			cmd := NewCmdCheckout(f, func(opts *CheckoutOptions) error {
+				spiedOpts = opts
+				return nil
+			})
+			cmd.SetArgs(argv)
+			cmd.SetIn(&bytes.Buffer{})
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetErr(&bytes.Buffer{})
+
+			_, err = cmd.ExecuteC()
+			if tt.wantErr != nil {
+				require.Equal(t, tt.wantErr, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantsOpts.RecurseSubmodules, spiedOpts.RecurseSubmodules)
+			require.Equal(t, tt.wantsOpts.Force, spiedOpts.Force)
+			require.Equal(t, tt.wantsOpts.Detach, spiedOpts.Detach)
+			require.Equal(t, tt.wantsOpts.BranchName, spiedOpts.BranchName)
+		})
+	}
+}
 
 // repo: either "baseOwner/baseRepo" or "baseOwner/baseRepo:defaultBranch"
 // prHead: "headOwner/headRepo:headBranch"
@@ -70,6 +149,20 @@ func _stubPR(repo, prHead string, number int, title string, state string, isDraf
 	}
 }
 
+type stubPRResolver struct {
+	pr       *api.PullRequest
+	baseRepo ghrepo.Interface
+
+	err error
+}
+
+func (s *stubPRResolver) Resolve() (*api.PullRequest, ghrepo.Interface, error) {
+	if s.err != nil {
+		return nil, nil, s.err
+	}
+	return s.pr, s.baseRepo, nil
+}
+
 func Test_checkoutRun(t *testing.T) {
 	tests := []struct {
 		name string
@@ -88,16 +181,13 @@ func Test_checkoutRun(t *testing.T) {
 		{
 			name: "checkout with ssh remote URL",
 			opts: &CheckoutOptions{
-				SelectorArg: "123",
-				Finder: func() shared.PRFinder {
+				PRResolver: func() PRResolver {
 					baseRepo, pr := stubPR("OWNER/REPO:master", "OWNER/REPO:feature")
-					finder := shared.NewMockFinder("123", pr, baseRepo)
-					return finder
+					return &stubPRResolver{
+						pr:       pr,
+						baseRepo: baseRepo,
+					}
 				}(),
-				BaseRepo: func() (ghrepo.Interface, error) {
-					baseRepo, _ := stubPR("OWNER/REPO:master", "OWNER/REPO:feature")
-					return baseRepo, nil
-				},
 				Config: func() (gh.Config, error) {
 					return config.NewBlankConfig(), nil
 				},
@@ -117,18 +207,15 @@ func Test_checkoutRun(t *testing.T) {
 		{
 			name: "fork repo was deleted",
 			opts: &CheckoutOptions{
-				SelectorArg: "123",
-				Finder: func() shared.PRFinder {
-					baseRepo, pr := stubPR("OWNER/REPO:master", "hubot/REPO:feature")
+				PRResolver: func() PRResolver {
+					baseRepo, pr := stubPR("OWNER/REPO:master", "OWNER/REPO:feature")
 					pr.MaintainerCanModify = true
 					pr.HeadRepository = nil
-					finder := shared.NewMockFinder("123", pr, baseRepo)
-					return finder
+					return &stubPRResolver{
+						pr:       pr,
+						baseRepo: baseRepo,
+					}
 				}(),
-				BaseRepo: func() (ghrepo.Interface, error) {
-					baseRepo, _ := stubPR("OWNER/REPO:master", "OWNER/REPO:feature")
-					return baseRepo, nil
-				},
 				Config: func() (gh.Config, error) {
 					return config.NewBlankConfig(), nil
 				},
@@ -151,17 +238,14 @@ func Test_checkoutRun(t *testing.T) {
 		{
 			name: "with local branch rename and existing git remote",
 			opts: &CheckoutOptions{
-				SelectorArg: "123",
-				BranchName:  "foobar",
-				Finder: func() shared.PRFinder {
+				BranchName: "foobar",
+				PRResolver: func() PRResolver {
 					baseRepo, pr := stubPR("OWNER/REPO:master", "OWNER/REPO:feature")
-					finder := shared.NewMockFinder("123", pr, baseRepo)
-					return finder
+					return &stubPRResolver{
+						pr:       pr,
+						baseRepo: baseRepo,
+					}
 				}(),
-				BaseRepo: func() (ghrepo.Interface, error) {
-					baseRepo, _ := stubPR("OWNER/REPO:master", "OWNER/REPO:feature")
-					return baseRepo, nil
-				},
 				Config: func() (gh.Config, error) {
 					return config.NewBlankConfig(), nil
 				},
@@ -181,18 +265,15 @@ func Test_checkoutRun(t *testing.T) {
 		{
 			name: "with local branch name, no existing git remote",
 			opts: &CheckoutOptions{
-				SelectorArg: "123",
-				BranchName:  "foobar",
-				Finder: func() shared.PRFinder {
+				BranchName: "foobar",
+				PRResolver: func() PRResolver {
 					baseRepo, pr := stubPR("OWNER/REPO:master", "hubot/REPO:feature")
 					pr.MaintainerCanModify = true
-					finder := shared.NewMockFinder("123", pr, baseRepo)
-					return finder
+					return &stubPRResolver{
+						pr:       pr,
+						baseRepo: baseRepo,
+					}
 				}(),
-				BaseRepo: func() (ghrepo.Interface, error) {
-					baseRepo, _ := stubPR("OWNER/REPO:master", "hubot/REPO:feature")
-					return baseRepo, nil
-				},
 				Config: func() (gh.Config, error) {
 					return config.NewBlankConfig(), nil
 				},
@@ -213,78 +294,14 @@ func Test_checkoutRun(t *testing.T) {
 			},
 		},
 		{
-			name: "with no selected PR args and non tty, return error",
+			name: "when the PR resolver errors, then that error is bubbled up",
 			opts: &CheckoutOptions{
-				SelectorArg: "",
-				Interactive: false,
-				BaseRepo: func() (ghrepo.Interface, error) {
-					return ghrepo.New("OWNER", "REPO"), nil
+				PRResolver: &stubPRResolver{
+					err: errors.New("expected test error"),
 				},
-			},
-			remotes: map[string]string{
-				"origin": "OWNER/REPO",
 			},
 			wantErr: true,
-			errMsg:  "pull request number, URL, or branch required when not running interactively",
-		},
-		{
-			name: "with no selected PR args and stdin tty, prompts for choice",
-			opts: &CheckoutOptions{
-				SelectorArg: "",
-				Interactive: true,
-				Lister: func() shared.PRLister {
-					_, pr1 := _stubPR("OWNER/REPO:master", "OWNER/REPO:feature", 32, "New feature", "OPEN", false)
-					_, pr2 := _stubPR("OWNER/REPO:master", "OWNER/REPO:bug-fix", 29, "Fixed bad bug", "OPEN", false)
-					_, pr3 := _stubPR("OWNER/REPO:master", "OWNER/REPO:docs", 28, "Improve documentation", "OPEN", true)
-					lister := shared.NewMockLister(&api.PullRequestAndTotalCount{
-						TotalCount: 3,
-						PullRequests: []api.PullRequest{
-							*pr1, *pr2, *pr3,
-						}, SearchCapped: false}, nil)
-					lister.ExpectFields([]string{"number", "title", "state", "isDraft", "headRefName", "headRepository", "headRepositoryOwner", "isCrossRepository", "maintainerCanModify"})
-					return lister
-				}(),
-				BaseRepo: func() (ghrepo.Interface, error) {
-					return ghrepo.New("OWNER", "REPO"), nil
-				},
-				Config: func() (gh.Config, error) {
-					return config.NewBlankConfig(), nil
-				},
-			},
-			promptStubs: func(pm *prompter.MockPrompter) {
-				pm.RegisterSelect("Select a pull request",
-					[]string{"32\tOPEN New feature [feature]", "29\tOPEN Fixed bad bug [bug-fix]", "28\tDRAFT Improve documentation [docs]"},
-					func(_, _ string, opts []string) (int, error) {
-						return prompter.IndexFor(opts, "32\tOPEN New feature [feature]")
-					})
-			},
-			runStubs: func(cs *run.CommandStubber) {
-				cs.Register(`git show-ref --verify -- refs/heads/feature`, 1, "")
-				cs.Register(`git fetch origin \+refs/heads/feature:refs/remotes/origin/feature --no-tags`, 0, "")
-				cs.Register(`git checkout -b feature --track origin/feature`, 0, "")
-			},
-			remotes: map[string]string{
-				"origin": "OWNER/REPO",
-			},
-		},
-		{
-			name: "with no select PR args and no open PR, return error",
-			opts: &CheckoutOptions{
-				SelectorArg: "",
-				Interactive: true,
-				BaseRepo: func() (ghrepo.Interface, error) {
-					return ghrepo.New("OWNER", "REPO"), nil
-				},
-				Lister: shared.NewMockLister(&api.PullRequestAndTotalCount{
-					TotalCount:   0,
-					PullRequests: []api.PullRequest{},
-				}, nil),
-			},
-			remotes: map[string]string{
-				"origin": "OWNER/REPO",
-			},
-			wantErr: true,
-			errMsg:  "no open pull requests in OWNER/REPO",
+			errMsg:  "expected test error",
 		},
 	}
 	for _, tt := range tests {
@@ -307,12 +324,6 @@ func Test_checkoutRun(t *testing.T) {
 			defer cmdTeardown(t)
 			if tt.runStubs != nil {
 				tt.runStubs(cmdStubs)
-			}
-
-			pm := prompter.NewMockPrompter(t)
-			tt.opts.Prompter = pm
-			if tt.promptStubs != nil {
-				tt.promptStubs(pm)
 			}
 
 			opts.Remotes = func() (context.Remotes, error) {
@@ -349,6 +360,102 @@ func Test_checkoutRun(t *testing.T) {
 			assert.Equal(t, tt.wantStderr, stderr.String())
 		})
 	}
+}
+
+func TestSpecificPRResolver(t *testing.T) {
+	t.Run("when the PR Finder returns results, those are returned", func(t *testing.T) {
+		t.Parallel()
+
+		baseRepo, pr := stubPR("OWNER/REPO:master", "OWNER/REPO:feature")
+		mockFinder := shared.NewMockFinder("123", pr, baseRepo)
+		mockFinder.ExpectFields([]string{"number", "headRefName", "headRepository", "headRepositoryOwner", "isCrossRepository", "maintainerCanModify"})
+
+		resolver := &specificPRResolver{
+			prFinder: mockFinder,
+			selector: "123",
+		}
+
+		resolvedPR, resolvedBaseRepo, err := resolver.Resolve()
+		require.NoError(t, err)
+		require.Equal(t, pr, resolvedPR)
+		require.True(t, ghrepo.IsSame(baseRepo, resolvedBaseRepo), "expected repos to be the same")
+	})
+
+	t.Run("when the PR Finder errors, that error is returned", func(t *testing.T) {
+		t.Parallel()
+
+		mockFinder := shared.NewMockFinder("123", nil, nil)
+
+		resolver := &specificPRResolver{
+			prFinder: mockFinder,
+			selector: "123",
+		}
+
+		_, _, err := resolver.Resolve()
+		var notFoundErr *shared.NotFoundError
+		require.ErrorAs(t, err, &notFoundErr)
+	})
+}
+
+func TestPromptingPRResolver(t *testing.T) {
+	t.Run("when the PR Lister has results, then we prompt for a choice", func(t *testing.T) {
+		t.Parallel()
+
+		ios, _, _, _ := iostreams.Test()
+
+		baseRepo, pr1 := _stubPR("OWNER/REPO:master", "OWNER/REPO:feature", 32, "New feature", "OPEN", false)
+		_, pr2 := _stubPR("OWNER/REPO:master", "OWNER/REPO:bug-fix", 29, "Fixed bad bug", "OPEN", false)
+		_, pr3 := _stubPR("OWNER/REPO:master", "OWNER/REPO:docs", 28, "Improve documentation", "OPEN", true)
+		lister := shared.NewMockLister(&api.PullRequestAndTotalCount{
+			TotalCount: 3,
+			PullRequests: []api.PullRequest{
+				*pr1, *pr2, *pr3,
+			}, SearchCapped: false}, nil)
+		lister.ExpectFields([]string{"number", "title", "state", "isDraft", "headRefName", "headRepository", "headRepositoryOwner", "isCrossRepository", "maintainerCanModify"})
+
+		pm := prompter.NewMockPrompter(t)
+		pm.RegisterSelect("Select a pull request",
+			[]string{"32\tOPEN New feature [feature]", "29\tOPEN Fixed bad bug [bug-fix]", "28\tDRAFT Improve documentation [docs]"},
+			func(_, _ string, opts []string) (int, error) {
+				return prompter.IndexFor(opts, "32\tOPEN New feature [feature]")
+			})
+
+		resolver := &promptingPRResolver{
+			io:       ios,
+			prompter: pm,
+
+			prLister: lister,
+
+			baseRepo: baseRepo,
+		}
+
+		resolvedPR, resolvedBaseRepo, err := resolver.Resolve()
+		require.NoError(t, err)
+		require.Equal(t, pr1, resolvedPR)
+		require.True(t, ghrepo.IsSame(baseRepo, resolvedBaseRepo), "expected repos to be the same")
+	})
+
+	t.Run("when the PR lister has no results, then we return an error", func(t *testing.T) {
+		t.Parallel()
+
+		ios, _, _, _ := iostreams.Test()
+
+		lister := shared.NewMockLister(&api.PullRequestAndTotalCount{
+			TotalCount:   0,
+			PullRequests: []api.PullRequest{},
+		}, nil)
+
+		resolver := &promptingPRResolver{
+			io:       ios,
+			prLister: lister,
+			baseRepo: ghrepo.New("OWNER", "REPO"),
+		}
+
+		_, _, err := resolver.Resolve()
+		var noResultsErr cmdutil.NoResultsError
+		require.ErrorAs(t, err, &noResultsErr)
+		require.Equal(t, "no open pull requests in OWNER/REPO", noResultsErr.Error())
+	})
 }
 
 /** LEGACY TESTS **/
