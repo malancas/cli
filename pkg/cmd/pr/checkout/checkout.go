@@ -27,13 +27,8 @@ type CheckoutOptions struct {
 	Remotes    func() (cliContext.Remotes, error)
 	Branch     func() (string, error)
 
-	Finder   shared.PRFinder
-	Prompter shared.Prompt
-	Lister   shared.PRLister
+	PRResolver PRResolver
 
-	Interactive       bool
-	BaseRepo          func() (ghrepo.Interface, error)
-	SelectorArg       string
 	RecurseSubmodules bool
 	Force             bool
 	Detach            bool
@@ -48,8 +43,6 @@ func NewCmdCheckout(f *cmdutil.Factory, runF func(*CheckoutOptions) error) *cobr
 		Config:     f.Config,
 		Remotes:    f.Remotes,
 		Branch:     f.Branch,
-		Prompter:   f.Prompter,
-		BaseRepo:   f.BaseRepo,
 	}
 
 	cmd := &cobra.Command{
@@ -66,15 +59,30 @@ func NewCmdCheckout(f *cmdutil.Factory, runF func(*CheckoutOptions) error) *cobr
 		`),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.Finder = shared.NewFinder(f)
-			opts.Lister = shared.NewLister(f)
-
 			if len(args) > 0 {
-				opts.SelectorArg = args[0]
-			} else if !opts.IO.CanPrompt() {
-				return cmdutil.FlagErrorf("pull request number, URL, or branch required when not running interactively")
+				opts.PRResolver = &specificPRResolver{
+					prFinder: shared.NewFinder(f),
+					selector: args[0],
+				}
+			} else if opts.IO.CanPrompt() {
+				baseRepo, err := f.BaseRepo()
+				if err != nil {
+					return err
+				}
+
+				httpClient, err := f.HttpClient()
+				if err != nil {
+					return err
+				}
+
+				opts.PRResolver = &promptingPRResolver{
+					io:       opts.IO,
+					prompter: f.Prompter,
+					prLister: shared.NewLister(httpClient),
+					baseRepo: baseRepo,
+				}
 			} else {
-				opts.Interactive = true
+				return cmdutil.FlagErrorf("pull request number, URL, or branch required when not running interactively")
 			}
 
 			if runF != nil {
@@ -93,12 +101,7 @@ func NewCmdCheckout(f *cmdutil.Factory, runF func(*CheckoutOptions) error) *cobr
 }
 
 func checkoutRun(opts *CheckoutOptions) error {
-	baseRepo, err := opts.BaseRepo()
-	if err != nil {
-		return err
-	}
-
-	pr, err := resolvePR(baseRepo, opts.Prompter, opts.SelectorArg, opts.Interactive, opts.Finder, opts.Lister, opts.IO)
+	pr, baseRepo, err := opts.PRResolver.Resolve()
 	if err != nil {
 		return err
 	}
@@ -286,32 +289,47 @@ func executeCmds(client *git.Client, credentialPattern git.CredentialPattern, cm
 	return nil
 }
 
-func resolvePR(baseRepo ghrepo.Interface, prompter shared.Prompt, pullRequestSelector string, isInteractive bool, pullRequestFinder shared.PRFinder, prLister shared.PRLister, io *iostreams.IOStreams) (*api.PullRequest, error) {
-	// When non-interactive
-	if pullRequestSelector != "" {
-		pr, _, err := pullRequestFinder.Find(shared.FindOptions{
-			Selector: pullRequestSelector,
-			Fields: []string{
-				"number",
-				"headRefName",
-				"headRepository",
-				"headRepositoryOwner",
-				"isCrossRepository",
-				"maintainerCanModify",
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
-		return pr, nil
+type PRResolver interface {
+	Resolve() (*api.PullRequest, ghrepo.Interface, error)
+}
+
+type specificPRResolver struct {
+	prFinder shared.PRFinder
+	selector string
+}
+
+func (r *specificPRResolver) Resolve() (*api.PullRequest, ghrepo.Interface, error) {
+	pr, baseRepo, err := r.prFinder.Find(shared.FindOptions{
+		Selector: r.selector,
+		Fields: []string{
+			"number",
+			"headRefName",
+			"headRepository",
+			"headRepositoryOwner",
+			"isCrossRepository",
+			"maintainerCanModify",
+		},
+	})
+	if err != nil {
+		return nil, nil, err
 	}
-	if !isInteractive {
-		return nil, cmdutil.FlagErrorf("pull request number, URL, or branch required when not running interactively")
-	}
-	// When interactive
-	io.StartProgressIndicator()
-	listResult, err := prLister.List(shared.ListOptions{
-		State: "open",
+	return pr, baseRepo, nil
+}
+
+type promptingPRResolver struct {
+	io       *iostreams.IOStreams
+	prompter shared.Prompt
+
+	prLister shared.PRLister
+
+	baseRepo ghrepo.Interface
+}
+
+func (r *promptingPRResolver) Resolve() (*api.PullRequest, ghrepo.Interface, error) {
+	r.io.StartProgressIndicator()
+	listResult, err := r.prLister.List(shared.ListOptions{
+		BaseRepo: r.baseRepo,
+		State:    "open",
 		Fields: []string{
 			"number",
 			"title",
@@ -325,21 +343,16 @@ func resolvePR(baseRepo ghrepo.Interface, prompter shared.Prompt, pullRequestSel
 			"maintainerCanModify",
 		},
 		LimitResults: 10})
-	io.StopProgressIndicator()
+	r.io.StopProgressIndicator()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(listResult.PullRequests) == 0 {
-		return nil, shared.ListNoResults(ghrepo.FullName(baseRepo), "pull request", false)
+		return nil, nil, shared.ListNoResults(ghrepo.FullName(r.baseRepo), "pull request", false)
 	}
 
-	pr, err := promptForPR(prompter, *listResult)
-	return pr, err
-}
-
-func promptForPR(prompter shared.Prompt, jobs api.PullRequestAndTotalCount) (*api.PullRequest, error) {
 	candidates := []string{}
-	for _, pr := range jobs.PullRequests {
+	for _, pr := range listResult.PullRequests {
 		candidates = append(candidates, fmt.Sprintf("%d\t%s %s [%s]",
 			pr.Number,
 			shared.PrStateWithDraft(&pr),
@@ -348,14 +361,10 @@ func promptForPR(prompter shared.Prompt, jobs api.PullRequestAndTotalCount) (*ap
 		))
 	}
 
-	selected, err := prompter.Select("Select a pull request", "", candidates)
+	selected, err := r.prompter.Select("Select a pull request", "", candidates)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if selected >= 0 {
-		return &jobs.PullRequests[selected], nil
-	}
-
-	return nil, nil
+	return &listResult.PullRequests[selected], r.baseRepo, nil
 }
