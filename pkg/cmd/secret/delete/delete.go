@@ -3,6 +3,7 @@ package delete
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/cli/v2/api"
@@ -48,8 +49,9 @@ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Co
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// If the user specified a repo directly, then we're using the OverrideBaseRepoFunc set by EnableRepoOverride
 			// So there's no reason to use the specialised BaseRepoFunc that requires remote disambiguation.
-			opts.BaseRepo = f.BaseRepo
-			if !cmd.Flags().Changed("repo") {
+			if cmd.Flags().Changed("repo") || os.Getenv("GH_REPO") != "" {
+				opts.BaseRepo = f.BaseRepo
+			} else {
 				// If they haven't specified a repo directly, then we will wrap the BaseRepoFunc in one that errors if
 				// there might be multiple valid remotes.
 				opts.BaseRepo = shared.RequireNoAmbiguityBaseRepoFunc(opts.BaseRepo, f.Remotes)
