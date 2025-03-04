@@ -144,6 +144,7 @@ func TestNewCmdDeleteBaseRepoFuncs(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          string
+		env           map[string]string
 		prompterStubs func(*prompter.MockPrompter)
 		wantRepo      ghrepo.Interface
 		wantErr       error
@@ -154,14 +155,22 @@ func TestNewCmdDeleteBaseRepoFuncs(t *testing.T) {
 			wantRepo: ghrepo.New("owner", "repo"),
 		},
 		{
-			name: "when there is no repo flag provided, and no prompting, the base func requiring no ambiguity is used",
+			name: "when GH_REPO env var is provided, the factory base repo func is used",
+			args: "SECRET_NAME",
+			env: map[string]string{
+				"GH_REPO": "owner/repo",
+			},
+			wantRepo: ghrepo.New("owner", "repo"),
+		},
+		{
+			name: "when there is no repo flag or GH_REPO env var provided, and no prompting, the base func requiring no ambiguity is used",
 			args: "SECRET_NAME",
 			wantErr: shared.AmbiguousBaseRepoError{
 				Remotes: remotes,
 			},
 		},
 		{
-			name: "when there is no repo flag provided, and can prompt, the base func resolving ambiguity is used",
+			name: "when there is no repo flag or GH_REPO env var provided, and can prompt, the base func resolving ambiguity is used",
 			args: "SECRET_NAME",
 			prompterStubs: func(pm *prompter.MockPrompter) {
 				pm.RegisterSelect(
@@ -197,6 +206,10 @@ func TestNewCmdDeleteBaseRepoFuncs(t *testing.T) {
 				Remotes: func() (ghContext.Remotes, error) {
 					return remotes, nil
 				},
+			}
+
+			for k, v := range tt.env {
+				t.Setenv(k, v)
 			}
 
 			argv, err := shlex.Split(tt.args)
