@@ -23,7 +23,7 @@ func newRebuildCmd(app *App) *cobra.Command {
 		Short: "Rebuild a codespace",
 		Long: heredoc.Doc(`
 			Rebuilding recreates your codespace.
-			
+
 			Your code and any current changes will be preserved. Your codespace will be rebuilt using
 			your working directory's dev container. A full rebuild also removes cached Docker images.
 		`),
@@ -35,7 +35,7 @@ func newRebuildCmd(app *App) *cobra.Command {
 
 	selector = AddCodespaceSelector(rebuildCmd, app.apiClient)
 
-	rebuildCmd.Flags().BoolVar(&fullRebuild, "full", false, "perform a full rebuild")
+	rebuildCmd.Flags().BoolVar(&fullRebuild, "full", false, "Perform a full rebuild")
 
 	return rebuildCmd
 }

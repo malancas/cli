@@ -43,7 +43,7 @@ require (
 	github.com/sigstore/protobuf-specs v0.3.3
 	github.com/sigstore/sigstore-go v0.7.0
 	github.com/spf13/cobra v1.8.1
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
 	github.com/zalando/go-keyring v0.2.5
 	golang.org/x/crypto v0.32.0
@@ -79,7 +79,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible // indirect
-	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.23.0 // indirect

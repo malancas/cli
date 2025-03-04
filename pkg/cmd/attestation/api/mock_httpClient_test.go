@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/cli/cli/v2/pkg/cmd/attestation/test/data"
 	"github.com/golang/snappy"
@@ -58,12 +59,16 @@ func (m *reqFailHttpClient) Get(url string) (*http.Response, error) {
 
 type failAfterNCallsHttpClient struct {
 	mock.Mock
+	mu                       sync.Mutex
 	FailOnCallN              int
 	FailOnAllSubsequentCalls bool
 	NumCalls                 int
 }
 
 func (m *failAfterNCallsHttpClient) Get(url string) (*http.Response, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.On("OnGetFailAfterNCalls").Return()
 
 	m.NumCalls++

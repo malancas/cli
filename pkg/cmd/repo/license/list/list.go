@@ -31,7 +31,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
 		Short: "List common repository licenses",
 		Long: heredoc.Doc(`
 			List common repository licenses.
-			
+
 			For even more licenses, visit <https://choosealicense.com/appendix>
 		`),
 		Aliases: []string{"ls"},

@@ -540,14 +540,14 @@ func Test_listRun(t *testing.T) {
 			wantOut: heredoc.Doc(`
 				1234 main.txt
 				    octo match in the description
-				
+
 				2345 octo.txt
 				    match in the file name
 
 				3456 main.txt
 				    match in the file text
 				        octo in the text
-				
+
 			`),
 		},
 		{
@@ -599,14 +599,14 @@ func Test_listRun(t *testing.T) {
 			wantOut: heredoc.Docf(`
 				%[1]s[0;34m1234%[1]s[0m %[1]s[0;32mmain.txt%[1]s[0m
 				    %[1]s[0;30;43mocto%[1]s[0m%[1]s[0;1;39m match in the description%[1]s[0m
-				
+
 				%[1]s[0;34m2345%[1]s[0m %[1]s[0;30;43mocto%[1]s[0m%[1]s[0;32m.txt%[1]s[0m
 				    %[1]s[0;1;39mmatch in the file name%[1]s[0m
-				
+
 				%[1]s[0;34m3456%[1]s[0m %[1]s[0;32mmain.txt%[1]s[0m
 				    %[1]s[0;1;39mmatch in the file text%[1]s[0m
 				        %[1]s[0;30;43mocto%[1]s[0m in the text
-				
+
 			`, "\x1b"),
 		},
 	}
