@@ -43,7 +43,7 @@ func GetLocalAttestations(path string) ([]*api.Attestation, error) {
 	if err != nil {
 		var pathErr *os.PathError
 		if errors.As(err, &pathErr) {
-			return nil, fmt.Errorf("could not load content from file path %s", path)
+			return nil, fmt.Errorf("could not load content from file path %s: %w", path, err)
 		} else if errors.Is(err, bundle.ErrValidation) {
 			return nil, err
 		}
