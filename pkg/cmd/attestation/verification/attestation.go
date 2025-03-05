@@ -47,7 +47,7 @@ func GetLocalAttestations(path string) ([]*api.Attestation, error) {
 		} else if errors.Is(err, bundle.ErrValidation) {
 			return nil, err
 		}
-		return nil, fmt.Errorf("bundle content could not be parsed")
+		return nil, fmt.Errorf("bundle content could not be parsed: %w", err)
 	}
 
 	return attestations, nil
